@@ -1,0 +1,3254 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f766e" />
+<meta name="description" content="內科住院醫師互動式練習系統：完整測驗、零碎時間練習、錯題重測，支援自訂 JSON 題庫與醫學影像判讀。" />
+<title>內科練功坊 Internal Medicine Practice Machine</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  if (window.tailwind) {
+    tailwind.config = { darkMode: 'class' };
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+/* =========================================================================
+   設計系統 Design tokens — 本區塊不依賴 Tailwind，確保離線／CDN 失效時
+   應用程式的版面與可讀性仍然完整。
+   ========================================================================= */
+:root{
+  --bg:#eef2f6;
+  --bg-grad:radial-gradient(1200px 600px at 12% -8%, #d9f2ee 0%, transparent 55%),
+            radial-gradient(1000px 500px at 105% 0%, #dbeafe 0%, transparent 50%);
+  --surface:#ffffff;
+  --surface-2:#f7fafc;
+  --surface-3:#eef2f7;
+  --border:#dde5ee;
+  --border-strong:#c6d3e2;
+  --text:#0f1d2e;
+  --text-2:#3d5166;
+  --muted:#6b7f95;
+  --primary:#0d7f74;
+  --primary-strong:#0b6a61;
+  --primary-soft:#dbf5f0;
+  --primary-ring:rgba(13,127,116,.30);
+  --accent:#2563eb;
+  --accent-soft:#e0ecff;
+  --success:#158443;
+  --success-soft:#dcf5e6;
+  --danger:#c92a2a;
+  --danger-soft:#fdE4e4;
+  --warn:#b45309;
+  --warn-soft:#fdf0d5;
+  --violet:#7c3aed;
+  --violet-soft:#efe6fe;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow-sm:0 1px 2px rgba(15,29,46,.06), 0 1px 3px rgba(15,29,46,.05);
+  --shadow:0 2px 6px rgba(15,29,46,.06), 0 14px 32px -18px rgba(15,29,46,.35);
+  --shadow-lg:0 24px 60px -24px rgba(15,29,46,.45);
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --header-h:56px;
+  --tabbar-h:60px;
+}
+html.dark{
+  --bg:#080e16;
+  --bg-grad:radial-gradient(1200px 600px at 12% -8%, #0d2b2a 0%, transparent 55%),
+            radial-gradient(1000px 500px at 105% 0%, #10203c 0%, transparent 50%);
+  --surface:#101a26;
+  --surface-2:#152232;
+  --surface-3:#1b2b3d;
+  --border:#243547;
+  --border-strong:#33485f;
+  --text:#e8eff7;
+  --text-2:#b8c8d8;
+  --muted:#8aa0b6;
+  --primary:#2dd4bf;
+  --primary-strong:#5eead4;
+  --primary-soft:#0f3b39;
+  --primary-ring:rgba(45,212,191,.28);
+  --accent:#7cb0ff;
+  --accent-soft:#16294a;
+  --success:#4ade80;
+  --success-soft:#0f3524;
+  --danger:#f87171;
+  --danger-soft:#3d1a1c;
+  --warn:#fbbf24;
+  --warn-soft:#3a2a10;
+  --violet:#c4b5fd;
+  --violet-soft:#2a2145;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 2px 8px rgba(0,0,0,.4), 0 18px 40px -24px rgba(0,0,0,.8);
+  --shadow-lg:0 30px 70px -30px rgba(0,0,0,.9);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0; padding:0;
+  font-family:var(--font);
+  background-color:var(--bg);
+  background-image:var(--bg-grad);
+  background-attachment:fixed;
+  color:var(--text);
+  font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4{margin:0; line-height:1.35; font-weight:700; letter-spacing:-.01em}
+p{margin:0}
+button{font-family:inherit; font-size:inherit; color:inherit}
+input,select,textarea{font-family:inherit; font-size:inherit; color:inherit}
+a{color:var(--primary); text-decoration:none}
+:focus-visible{outline:3px solid var(--primary-ring); outline-offset:2px; border-radius:6px}
+::selection{background:var(--primary-soft); color:var(--text)}
+
+/* ---------- 版面骨架 ---------- */
+.app-shell{min-height:100dvh; display:flex; flex-direction:column}
+.topbar{
+  position:sticky; top:0; z-index:40;
+  height:var(--header-h);
+  display:flex; align-items:center; gap:.6rem;
+  padding:0 .8rem;
+  padding-top:env(safe-area-inset-top);
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter:saturate(1.4) blur(14px);
+  -webkit-backdrop-filter:saturate(1.4) blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:center; gap:.55rem; min-width:0; flex:1}
+.brand-mark{
+  width:32px;height:32px;flex:none;border-radius:10px;
+  background:linear-gradient(140deg,var(--primary),#0ea5a3 60%,var(--accent));
+  display:grid;place-items:center;color:#fff;font-weight:900;font-size:.85rem;
+  box-shadow:0 4px 12px -4px var(--primary-ring);
+}
+.brand-text{min-width:0}
+.brand-title{font-size:.98rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand-sub{font-size:.66rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:.04em}
+.topbar-actions{display:flex; align-items:center; gap:.35rem; flex:none}
+
+.icon-btn{
+  width:36px;height:36px;flex:none;border:1px solid var(--border);
+  background:var(--surface); border-radius:11px; cursor:pointer;
+  display:grid;place-items:center; color:var(--text-2);
+  transition:.16s ease;
+}
+.icon-btn:hover{background:var(--surface-3); color:var(--text); border-color:var(--border-strong)}
+.icon-btn svg{width:18px;height:18px}
+
+/* 主導覽（桌機在上、手機在下） */
+.navtabs{
+  position:sticky; top:var(--header-h); z-index:35;
+  display:flex; gap:.25rem; padding:.4rem .6rem;
+  background:color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  overflow-x:auto; scrollbar-width:none;
+}
+.navtabs::-webkit-scrollbar{display:none}
+.navtab{
+  border:0; background:transparent; cursor:pointer;
+  padding:.42rem .8rem; border-radius:999px;
+  font-size:.86rem; font-weight:600; color:var(--muted);
+  white-space:nowrap; display:flex; align-items:center; gap:.35rem;
+  transition:.16s ease;
+}
+.navtab:hover{color:var(--text); background:var(--surface-3)}
+.navtab.active{background:var(--primary); color:#fff; box-shadow:0 4px 12px -4px var(--primary-ring)}
+html.dark .navtab.active{color:#04211f}
+.navtab .badge{
+  background:var(--danger); color:#fff; font-size:.65rem; font-weight:800;
+  min-width:18px; height:18px; padding:0 5px; border-radius:999px;
+  display:grid; place-items:center; line-height:1;
+}
+.navtab.active .badge{background:rgba(255,255,255,.28)}
+
+main{flex:1; width:100%}
+.view{
+  width:100%; max-width:1180px; margin:0 auto;
+  padding:1rem .8rem 3rem;
+  animation:fade .22s ease;
+}
+.view.wide{max-width:1500px}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 元件 ---------- */
+.card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm);
+}
+.card-pad{padding:1rem}
+.card-hd{
+  display:flex; align-items:center; gap:.6rem; justify-content:space-between;
+  padding:.85rem 1rem; border-bottom:1px solid var(--border);
+}
+.card-title{font-size:1rem; font-weight:800; display:flex; align-items:center; gap:.5rem}
+.sec-title{font-size:.78rem; font-weight:800; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin:1.4rem 0 .6rem}
+.sec-title:first-child{margin-top:0}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.tiny{font-size:.73rem}
+.mono{font-family:var(--mono)}
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+  border:1px solid var(--border-strong); background:var(--surface); color:var(--text);
+  padding:.6rem 1rem; border-radius:12px; font-weight:700; font-size:.9rem;
+  cursor:pointer; transition:.16s ease; text-align:center;
+  min-height:44px; /* 觸控目標 */
+}
+.btn:hover{background:var(--surface-3); transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.45; cursor:not-allowed; transform:none}
+.btn svg{width:17px;height:17px;flex:none}
+.btn-primary{background:var(--primary); border-color:var(--primary); color:#fff; box-shadow:0 6px 16px -8px var(--primary-ring)}
+.btn-primary:hover{background:var(--primary-strong); border-color:var(--primary-strong)}
+html.dark .btn-primary{color:#042a27}
+.btn-accent{background:var(--accent); border-color:var(--accent); color:#fff}
+html.dark .btn-accent{color:#07203f}
+.btn-danger{background:var(--danger); border-color:var(--danger); color:#fff}
+html.dark .btn-danger{color:#2b0d0d}
+.btn-ghost{background:transparent; border-color:transparent; color:var(--text-2)}
+.btn-ghost:hover{background:var(--surface-3)}
+.btn-sm{padding:.38rem .7rem; font-size:.8rem; min-height:36px; border-radius:10px}
+.btn-lg{padding:.85rem 1.3rem; font-size:1rem; min-height:52px; border-radius:14px}
+.btn-block{width:100%}
+.btn-row{display:flex; flex-wrap:wrap; gap:.5rem}
+
+.chip{
+  display:inline-flex; align-items:center; gap:.3rem;
+  padding:.2rem .55rem; border-radius:999px;
+  font-size:.72rem; font-weight:700; line-height:1.6;
+  background:var(--surface-3); color:var(--text-2); border:1px solid var(--border);
+  white-space:nowrap;
+}
+.chip-primary{background:var(--primary-soft); color:var(--primary-strong); border-color:transparent}
+html.dark .chip-primary{color:var(--primary-strong)}
+.chip-success{background:var(--success-soft); color:var(--success); border-color:transparent}
+.chip-danger{background:var(--danger-soft); color:var(--danger); border-color:transparent}
+.chip-warn{background:var(--warn-soft); color:var(--warn); border-color:transparent}
+.chip-accent{background:var(--accent-soft); color:var(--accent); border-color:transparent}
+.chip-violet{background:var(--violet-soft); color:var(--violet); border-color:transparent}
+
+.field{display:block; margin-bottom:.9rem}
+.label{display:block; font-size:.82rem; font-weight:700; color:var(--text-2); margin-bottom:.35rem}
+.input, .select, .textarea{
+  width:100%; padding:.6rem .75rem; border-radius:11px;
+  border:1px solid var(--border-strong); background:var(--surface-2);
+  transition:.16s ease; font-size:.92rem;
+}
+.input:focus,.select:focus,.textarea:focus{
+  outline:none; border-color:var(--primary); background:var(--surface);
+  box-shadow:0 0 0 3px var(--primary-ring);
+}
+.textarea{min-height:170px; font-family:var(--mono); font-size:.8rem; line-height:1.6; resize:vertical}
+
+.pill-group{display:flex; flex-wrap:wrap; gap:.4rem}
+.pill{
+  border:1px solid var(--border-strong); background:var(--surface-2);
+  padding:.45rem .8rem; border-radius:999px; cursor:pointer;
+  font-size:.85rem; font-weight:700; color:var(--text-2); transition:.16s ease;
+  min-height:40px; display:inline-flex; align-items:center; gap:.3rem;
+}
+.pill:hover{border-color:var(--primary); color:var(--primary)}
+.pill.on{background:var(--primary); border-color:var(--primary); color:#fff; box-shadow:0 4px 12px -6px var(--primary-ring)}
+html.dark .pill.on{color:#042a27}
+
+.stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:.6rem}
+.stat{
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:.7rem .8rem;
+}
+.stat-num{font-size:1.5rem; font-weight:900; line-height:1.15; letter-spacing:-.02em}
+.stat-lbl{font-size:.72rem; color:var(--muted); font-weight:600}
+
+.bar{display:block; height:8px; border-radius:999px; background:var(--surface-3); overflow:hidden}
+.bar > i{display:block; height:100%; border-radius:999px; background:var(--primary); transition:width .5s cubic-bezier(.2,.7,.3,1)}
+
+.empty{
+  text-align:center; padding:2.2rem 1rem; color:var(--muted);
+  border:1.5px dashed var(--border-strong); border-radius:var(--radius); background:var(--surface-2);
+}
+.empty .big{font-size:2rem; margin-bottom:.4rem}
+
+.divider{height:1px; background:var(--border); margin:1rem 0; border:0}
+
+/* ---------- 首頁模式卡 ---------- */
+.mode-grid{display:grid; gap:.8rem; grid-template-columns:1fr}
+.mode-card{
+  position:relative; text-align:left; width:100%;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:1.05rem; cursor:pointer;
+  box-shadow:var(--shadow-sm); transition:.18s ease; overflow:hidden;
+}
+.mode-card:hover{transform:translateY(-2px); box-shadow:var(--shadow); border-color:var(--primary)}
+.mode-card::after{
+  content:""; position:absolute; inset:0 auto 0 0; width:4px;
+  background:var(--accent-c, var(--primary));
+}
+.mode-ico{
+  width:42px;height:42px;border-radius:13px; display:grid;place-items:center;
+  background:var(--accent-soft-c, var(--primary-soft)); color:var(--accent-c, var(--primary));
+  font-size:1.25rem; margin-bottom:.6rem;
+}
+.mode-name{font-size:1.05rem; font-weight:800; margin-bottom:.2rem}
+.mode-desc{font-size:.85rem; color:var(--muted); line-height:1.6}
+
+/* ---------- 測驗版面（Galaxy Z Fold 7 雙欄 / 單欄自適應） ---------- */
+.quiz-wrap{display:block}
+.qnav-panel{display:none}
+.quiz-main{min-width:0}
+
+.qnav-inner{padding:.85rem}
+.qnav-grid{
+  display:grid; gap:.34rem;
+  grid-template-columns:repeat(auto-fill,minmax(40px,1fr));
+}
+.qnav-btn{
+  aspect-ratio:1/1; min-height:40px; border-radius:10px; cursor:pointer;
+  border:1.5px solid var(--border-strong); background:var(--surface-2);
+  font-size:.8rem; font-weight:800; color:var(--text-2);
+  display:grid; place-items:center; position:relative; transition:.12s ease;
+}
+.qnav-btn:hover{border-color:var(--primary); color:var(--primary)}
+.qnav-btn.answered{background:var(--primary-soft); border-color:var(--primary); color:var(--primary-strong)}
+.qnav-btn.current{outline:3px solid var(--primary-ring); outline-offset:1px; border-color:var(--primary)}
+.qnav-btn.correct{background:var(--success-soft); border-color:var(--success); color:var(--success)}
+.qnav-btn.wrong{background:var(--danger-soft); border-color:var(--danger); color:var(--danger)}
+.qnav-btn.flagged::after{
+  content:""; position:absolute; top:2px; right:2px;
+  width:7px;height:7px;border-radius:50%; background:var(--warn);
+}
+.legend{display:flex; flex-wrap:wrap; gap:.5rem .8rem; font-size:.72rem; color:var(--muted)}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block; margin-right:.25rem; vertical-align:-1px}
+
+/* 題目工作區 */
+.q-head{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.7rem}
+.q-index{font-size:.95rem; font-weight:900; color:var(--primary)}
+.q-stem{
+  font-size:1.02rem; line-height:1.85; color:var(--text);
+  white-space:pre-wrap; word-break:break-word;
+}
+.q-img-box{
+  margin:.9rem 0; border-radius:12px; overflow:hidden;
+  border:1px solid var(--border); background:var(--surface-2);
+  position:relative;
+}
+.q-img{
+  display:block; width:100%; height:auto; max-height:52vh;
+  object-fit:contain; cursor:zoom-in; background:#fff;
+}
+html.dark .q-img{background:#0b1017}
+.q-img-cap{
+  font-size:.74rem; color:var(--muted); padding:.4rem .6rem;
+  border-top:1px solid var(--border); display:flex; align-items:center; gap:.4rem; justify-content:space-between;
+}
+.zoom-hint{
+  position:absolute; top:.5rem; right:.5rem; pointer-events:none;
+  background:rgba(15,29,46,.72); color:#fff; font-size:.68rem; font-weight:700;
+  padding:.2rem .5rem; border-radius:999px; display:flex; align-items:center; gap:.25rem;
+}
+
+.opts{display:flex; flex-direction:column; gap:.5rem; margin-top:1rem}
+.opt{
+  display:flex; align-items:flex-start; gap:.65rem; width:100%; text-align:left;
+  padding:.75rem .85rem; border-radius:12px; cursor:pointer;
+  border:1.5px solid var(--border-strong); background:var(--surface-2);
+  transition:.14s ease; font-size:.94rem; line-height:1.7;
+}
+.opt:hover{border-color:var(--primary); background:var(--surface); transform:translateX(2px)}
+.opt-key{
+  flex:none; width:28px;height:28px;border-radius:9px;
+  display:grid;place-items:center; font-weight:900; font-size:.82rem;
+  background:var(--surface-3); color:var(--text-2); border:1px solid var(--border);
+  margin-top:1px;
+}
+.opt-text{min-width:0; word-break:break-word; flex:1}
+.opt.sel{border-color:var(--primary); background:var(--primary-soft); box-shadow:0 0 0 3px var(--primary-ring)}
+.opt.sel .opt-key{background:var(--primary); color:#fff; border-color:var(--primary)}
+html.dark .opt.sel .opt-key{color:#042a27}
+.opt.ok{border-color:var(--success); background:var(--success-soft)}
+.opt.ok .opt-key{background:var(--success); color:#fff; border-color:var(--success)}
+.opt.bad{border-color:var(--danger); background:var(--danger-soft)}
+.opt.bad .opt-key{background:var(--danger); color:#fff; border-color:var(--danger)}
+.opt.locked{cursor:default}
+.opt.locked:hover{transform:none}
+.opt-tag{
+  margin-left:auto; flex:none; font-size:.68rem; font-weight:800;
+  padding:.12rem .45rem; border-radius:999px; align-self:center;
+}
+.opt-tag.ok{background:var(--success); color:#fff}
+.opt-tag.bad{background:var(--danger); color:#fff}
+.opt-tag.you{background:var(--text-2); color:var(--surface)}
+
+/* 底部操作列（手機） */
+.quiz-footer{
+  position:sticky; bottom:0; z-index:30; margin-top:1rem;
+  display:flex; align-items:center; gap:.5rem;
+  padding:.55rem .6rem calc(.55rem + env(safe-area-inset-bottom));
+  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  border-radius:14px 14px 0 0;
+  box-shadow:0 -6px 20px -12px rgba(15,29,46,.4);
+}
+.quiz-footer .btn{flex:1}
+.progress-strip{height:4px; background:var(--surface-3); border-radius:999px; overflow:hidden; margin-bottom:.7rem}
+.progress-strip > i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),var(--accent)); transition:width .35s ease}
+
+/* ---------- 詳解卡 ---------- */
+.review-card{margin-bottom:.8rem; overflow:hidden}
+.review-hd{
+  display:flex; align-items:center; gap:.55rem; flex-wrap:wrap;
+  padding:.7rem .9rem; border-bottom:1px solid var(--border);
+  font-size:.85rem; font-weight:700;
+}
+.review-hd.ok{background:var(--success-soft); color:var(--success)}
+.review-hd.bad{background:var(--danger-soft); color:var(--danger)}
+.review-hd.skip{background:var(--warn-soft); color:var(--warn)}
+.review-body{padding:.9rem}
+
+.acc-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+  padding:.7rem .85rem; border-radius:12px; cursor:pointer;
+  border:1px solid var(--border-strong); background:var(--surface-2);
+  font-weight:800; font-size:.88rem; margin-top:.9rem; transition:.14s ease;
+  min-height:46px;
+}
+.acc-btn:hover{background:var(--surface-3); border-color:var(--primary)}
+.acc-btn[aria-expanded="true"]{background:var(--primary-soft); border-color:var(--primary); color:var(--primary-strong)}
+.acc-btn .caret{transition:transform .2s ease; flex:none}
+.acc-btn[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.acc-panel{display:none; padding-top:.7rem; animation:fade .2s ease}
+.acc-panel.open{display:block}
+
+.expl-block{
+  border-left:4px solid var(--primary); background:var(--primary-soft);
+  border-radius:0 12px 12px 0; padding:.75rem .9rem; margin-bottom:.8rem;
+}
+.expl-block .h{
+  font-size:.76rem; font-weight:900; letter-spacing:.06em;
+  color:var(--primary-strong); margin-bottom:.3rem; display:flex; align-items:center; gap:.35rem;
+}
+.expl-block .b{font-size:.9rem; line-height:1.85; color:var(--text); white-space:pre-wrap}
+
+.brk{display:flex; flex-direction:column; gap:.5rem}
+.brk-item{
+  display:flex; gap:.6rem; padding:.65rem .75rem; border-radius:11px;
+  background:var(--surface-2); border:1px solid var(--border);
+}
+.brk-item.is-ans{background:var(--success-soft); border-color:color-mix(in srgb,var(--success) 35%, transparent)}
+.brk-item.is-you{background:var(--danger-soft); border-color:color-mix(in srgb,var(--danger) 35%, transparent)}
+.brk-key{
+  flex:none; width:26px;height:26px;border-radius:8px; display:grid;place-items:center;
+  font-weight:900; font-size:.78rem; background:var(--surface-3); color:var(--text-2);
+}
+.brk-item.is-ans .brk-key{background:var(--success); color:#fff}
+.brk-item.is-you .brk-key{background:var(--danger); color:#fff}
+.brk-body{min-width:0; font-size:.87rem; line-height:1.8}
+.brk-opt{font-weight:700; color:var(--text); margin-bottom:.15rem}
+.brk-txt{color:var(--text-2); white-space:pre-wrap}
+.brk-fix{
+  margin-top:.4rem; padding:.4rem .6rem; border-radius:9px;
+  background:var(--warn-soft); color:var(--warn); font-size:.83rem; font-weight:600;
+  border-left:3px solid var(--warn);
+}
+html.dark .brk-fix{color:var(--warn)}
+
+/* ---------- 分數區 ---------- */
+.score-hero{
+  display:flex; align-items:center; gap:1.1rem; flex-wrap:wrap;
+  padding:1.2rem; border-radius:var(--radius);
+  background:linear-gradient(135deg,var(--surface),var(--surface-2));
+  border:1px solid var(--border); box-shadow:var(--shadow);
+}
+.ring{
+  --p:0; --c:var(--primary);
+  width:118px;height:118px;flex:none;border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--p)*1%), var(--surface-3) 0);
+  display:grid;place-items:center; position:relative;
+}
+.ring::before{content:""; position:absolute; inset:11px; border-radius:50%; background:var(--surface)}
+.ring-in{position:relative; text-align:center; line-height:1.1}
+.ring-pct{font-size:1.75rem; font-weight:900; letter-spacing:-.03em}
+.ring-lbl{font-size:.66rem; color:var(--muted); font-weight:700}
+
+.cat-row{display:flex; align-items:center; gap:.6rem; padding:.35rem 0; font-size:.83rem}
+.cat-name{flex:none; width:9.5rem; max-width:42%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600}
+.cat-bar{display:block; flex:1; min-width:60px}
+.cat-val{flex:none; font-variant-numeric:tabular-nums; font-weight:800; width:4.2rem; text-align:right}
+
+/* ---------- 燈箱 Lightbox ---------- */
+.lightbox{
+  position:fixed; inset:0; z-index:200; display:none;
+  background:rgba(4,7,11,.975); touch-action:none; overscroll-behavior:contain;
+}
+.lightbox.open{display:block}
+.lb-stage{
+  position:absolute; inset:0; overflow:hidden;
+  display:grid; place-items:center; cursor:grab;
+}
+.lb-stage.dragging{cursor:grabbing}
+.lb-img{
+  max-width:100%; max-height:100%;
+  transform-origin:center center; will-change:transform;
+  user-select:none; -webkit-user-drag:none; pointer-events:none;
+  background:#fff; border-radius:4px;
+}
+.lb-bar{
+  position:absolute; left:0; right:0; top:0; z-index:2;
+  display:flex; align-items:center; gap:.5rem; justify-content:space-between;
+  padding:calc(.6rem + env(safe-area-inset-top)) .8rem .6rem;
+  background:linear-gradient(180deg,rgba(6,10,16,.85),transparent);
+  color:#fff;
+}
+.lb-title{font-size:.85rem; font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lb-tools{
+  position:absolute; left:50%; transform:translateX(-50%); z-index:2;
+  bottom:calc(1rem + env(safe-area-inset-bottom));
+  display:flex; align-items:center; gap:.3rem;
+  background:rgba(20,28,38,.9); border:1px solid rgba(255,255,255,.16);
+  padding:.35rem; border-radius:999px; backdrop-filter:blur(10px);
+}
+.lb-btn{
+  width:42px;height:42px;border-radius:999px; border:0; cursor:pointer;
+  background:transparent; color:#fff; display:grid;place-items:center;
+}
+.lb-btn:hover{background:rgba(255,255,255,.14)}
+.lb-btn svg{width:20px;height:20px}
+.lb-zoomval{color:#fff; font-size:.78rem; font-weight:800; min-width:52px; text-align:center; font-variant-numeric:tabular-nums}
+.lb-cap{
+  position:absolute; left:0; right:0; z-index:2;
+  bottom:calc(4.6rem + env(safe-area-inset-bottom));
+  text-align:center; color:rgba(255,255,255,.85); font-size:.76rem;
+  padding:0 1rem; pointer-events:none;
+}
+
+/* ---------- 抽屜 / 對話框 ---------- */
+.sheet-backdrop{
+  position:fixed; inset:0; z-index:120; background:rgba(6,10,16,.55);
+  backdrop-filter:blur(3px); display:none;
+}
+.sheet-backdrop.open{display:block; animation:fade .18s ease}
+.sheet{
+  position:absolute; left:0; right:0; bottom:0; max-height:82dvh; overflow:auto;
+  background:var(--surface); border-radius:20px 20px 0 0;
+  padding:.9rem .9rem calc(1rem + env(safe-area-inset-bottom));
+  box-shadow:var(--shadow-lg); animation:slideup .22s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes slideup{from{transform:translateY(20px);opacity:.4}to{transform:none;opacity:1}}
+.sheet-handle{width:42px;height:4px;border-radius:999px;background:var(--border-strong); margin:0 auto .8rem}
+
+.modal-backdrop{
+  position:fixed; inset:0; z-index:150; background:rgba(6,10,16,.6);
+  display:none; place-items:center; padding:1rem; backdrop-filter:blur(4px);
+  overflow:auto;
+}
+.modal-backdrop.open{display:grid; animation:fade .18s ease}
+.modal{
+  width:100%; max-width:520px; background:var(--surface);
+  border-radius:18px; box-shadow:var(--shadow-lg); border:1px solid var(--border);
+  padding:1.1rem; margin:auto;
+}
+.modal h3{font-size:1.05rem; margin-bottom:.5rem}
+
+/* ---------- Toast ---------- */
+.toast-wrap{
+  position:fixed; z-index:300; left:50%; transform:translateX(-50%);
+  bottom:calc(1.2rem + env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; gap:.4rem; align-items:center;
+  pointer-events:none; width:max-content; max-width:92vw;
+}
+.toast{
+  background:var(--text); color:var(--surface);
+  padding:.6rem 1rem; border-radius:999px; font-size:.85rem; font-weight:700;
+  box-shadow:var(--shadow-lg); animation:pop .2s ease;
+  display:flex; align-items:center; gap:.45rem;
+}
+.toast.ok{background:var(--success); color:#fff}
+.toast.err{background:var(--danger); color:#fff}
+@keyframes pop{from{transform:translateY(10px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+
+kbd{
+  font-family:var(--mono); font-size:.72rem; padding:.05rem .35rem;
+  border:1px solid var(--border-strong); border-bottom-width:2px;
+  border-radius:5px; background:var(--surface-2); color:var(--text-2);
+}
+.kbd-help{display:none}
+
+/* =========================================================================
+   響應式：
+   - ≤ 420px  : Galaxy Z Fold 7 外螢幕 / 窄手機 → 單欄緊湊
+   - ≥ 660px  : Z Fold 7 內螢幕展開 / 平板 → 雙欄分割（題號導覽 + 作答區）
+   - ≥ 1024px : 桌機 → 更寬的側欄與內距
+   ========================================================================= */
+@media (max-width:420px){
+  body{font-size:15px}
+  .view{padding:.75rem .6rem 2.5rem}
+  .q-stem{font-size:.97rem; line-height:1.8}
+  .opt{font-size:.9rem; padding:.65rem .7rem}
+  .brand-sub{display:none}
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .ring{width:96px;height:96px}
+  .ring-pct{font-size:1.45rem}
+  .card-pad{padding:.85rem}
+  .review-body{padding:.75rem}
+  .cat-name{width:6.5rem}
+}
+@media (min-width:560px){
+  .mode-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (min-width:660px){
+  .view{padding:1.4rem 1.2rem 3rem}
+  .quiz-wrap{
+    display:grid; gap:1rem; align-items:start;
+    grid-template-columns:minmax(220px,26%) 1fr;
+  }
+  .qnav-panel{
+    display:block; position:sticky; top:calc(var(--header-h) + 52px);
+    max-height:calc(100dvh - var(--header-h) - 72px); overflow:auto;
+  }
+  .quiz-footer{
+    position:static; border:1px solid var(--border); border-radius:14px;
+    padding:.6rem; background:var(--surface); box-shadow:none;
+  }
+  .btn-mobile-nav{display:none !important}
+  .kbd-help{display:flex}
+  .mode-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media (min-width:1024px){
+  .quiz-wrap{grid-template-columns:minmax(250px,300px) 1fr; gap:1.4rem}
+  .q-stem{font-size:1.06rem}
+  .view{padding:1.6rem 1.5rem 3.5rem}
+}
+/* Z Fold 展開後的橫向使用：壓低垂直內距 */
+@media (min-width:660px) and (max-height:560px){
+  .q-img{max-height:44vh}
+  .view{padding-top:.8rem}
+}
+@media print{
+  .topbar,.navtabs,.quiz-footer,.qnav-panel,.no-print{display:none !important}
+  body{background:#fff}
+  .acc-panel{display:block !important}
+  .card{break-inside:avoid; box-shadow:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important; transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ============ 頂部列 ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">IM</div>
+      <div class="brand-text">
+        <div class="brand-title">內科練功坊</div>
+        <div class="brand-sub">INTERNAL MEDICINE PRACTICE MACHINE</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btnTheme" title="切換深色 / 淺色模式" aria-label="切換深色或淺色模式">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
+      </button>
+      <button class="icon-btn" id="btnFont" title="調整字級" aria-label="調整字級">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 10 4h1l6 16"/><path d="M6.5 14h8"/><path d="M18 20h4"/></svg>
+      </button>
+      <button class="icon-btn" id="btnHelp" title="使用說明" aria-label="使用說明">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><path d="M12 17h.01"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ 主導覽 ============ -->
+  <nav class="navtabs" id="navtabs" aria-label="主要功能導覽">
+    <button class="navtab" data-nav="home">🏠 首頁</button>
+    <button class="navtab" data-nav="examSetup">📋 完整測驗</button>
+    <button class="navtab" data-nav="practiceSetup">⏱️ 零碎練習</button>
+    <button class="navtab" data-nav="wrong">🔁 錯題重測<span class="badge" id="wrongBadge" hidden>0</span></button>
+    <button class="navtab" data-nav="bank">🗂️ 題庫管理</button>
+    <button class="navtab" data-nav="history">📈 學習紀錄</button>
+  </nav>
+
+  <main id="main" role="main"><!-- 由 JS 渲染 --></main>
+</div>
+
+<!-- ============ 圖片燈箱 ============ -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="醫學影像放大檢視">
+  <div class="lb-bar">
+    <div class="lb-title" id="lbTitle">醫學影像</div>
+    <button class="lb-btn" id="lbClose" aria-label="關閉影像">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <img class="lb-img" id="lbImg" alt="醫學影像放大檢視" />
+  </div>
+  <div class="lb-cap" id="lbCap"></div>
+  <div class="lb-tools">
+    <button class="lb-btn" id="lbOut" aria-label="縮小">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M20 20l-3.5-3.5"/></svg>
+    </button>
+    <span class="lb-zoomval" id="lbZoom">100%</span>
+    <button class="lb-btn" id="lbIn" aria-label="放大">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M11 8v6M8 11h6M20 20l-3.5-3.5"/></svg>
+    </button>
+    <button class="lb-btn" id="lbReset" aria-label="重設縮放">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ============ 底部抽屜（手機題號導覽） ============ -->
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="題號導覽">
+    <div class="sheet-handle"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<!-- ============ 通用對話框 ============ -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+<script>
+"use strict";
+/* =========================================================================
+   內科練功坊 Internal Medicine Practice Machine
+   單檔、零後端、100% 前端執行。資料保存在瀏覽器 localStorage。
+   ========================================================================= */
+
+/* ------------------------- 0. 小工具 ------------------------- */
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const LETTERS = "ABCDEFGHIJ".split("");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad2 = (n) => String(n).padStart(2, "0");
+const fmtTime = (ms) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return (h ? h + ":" : "") + pad2(h ? m : m) + ":" + pad2(s % 60);
+};
+const fmtDate = (ts) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+const uid = () => Math.random().toString(36).slice(2, 10);
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* 安全的 localStorage 包裝（無痕模式 / 停用 cookie 時不會讓程式壞掉） */
+const LS = {
+  available: (() => { try { const k = "__t"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return true; } catch (e) { return false; } })(),
+  get(key, dflt) {
+    if (!this.available) return dflt;
+    try { const raw = localStorage.getItem(key); return raw == null ? dflt : JSON.parse(raw); }
+    catch (e) { return dflt; }
+  },
+  set(key, val) {
+    if (!this.available) return false;
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) { toast("儲存空間不足或無法寫入，資料未保存", "err"); return false; }
+  },
+  del(key) { if (this.available) { try { localStorage.removeItem(key); } catch (e) {} } },
+};
+const K = {
+  bank: "imm.v2.bank",
+  meta: "imm.v2.bankMeta",
+  wrong: "imm.v2.wrong",
+  history: "imm.v2.history",
+  settings: "imm.v2.settings",
+  resume: "imm.v2.resume",
+};
+
+/* ------------------------- 1. 內建示意圖（離線可用） -------------------------
+   以程式產生 SVG data URI，讓範例題庫在完全離線時仍能示範
+   「醫學影像 + 點擊放大燈箱」功能。所有圖片皆明確標示為「示意圖」。
+   自訂題庫可用 "image_url": "builtin:ekg-stemi" 引用，或直接填一般網址 / data URI。
+--------------------------------------------------------------------------- */
+const svgURI = (svg) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace(/\s{2,}/g, " "));
+
+function ecgPaper(W, H) {
+  return `<defs>
+    <pattern id="sm" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M10 0H0V10" fill="none" stroke="#f6cfcf" stroke-width=".7"/></pattern>
+    <pattern id="bg" width="50" height="50" patternUnits="userSpaceOnUse">
+      <rect width="50" height="50" fill="url(#sm)"/>
+      <path d="M50 0H0V50" fill="none" stroke="#eda3a3" stroke-width="1.3"/></pattern>
+  </defs>
+  <rect width="${W}" height="${H}" fill="#fffafa"/><rect width="${W}" height="${H}" fill="url(#bg)"/>`;
+}
+
+/** 產生一段心電圖示意波形 */
+function ecgSvg(opt) {
+  const o = Object.assign({ st: 0, t: 15, p: true, peaked: false, convex: false, spacing: 172, jitter: 0, title: "", lead: "" }, opt);
+  const W = 940, H = 300, base = 200;
+  let d = `M0 ${base}`;
+  let x = 12;
+  let n = 0;
+  const rng = () => (o.jitter ? (Math.sin(n * 12.9898) * 43758.5453 % 1) : 0);
+  while (x + 150 < W) {
+    const stY = base - o.st;
+    if (o.p) d += ` L${x + 16} ${base} Q${x + 26} ${base - 12} ${x + 36} ${base}`;
+    else d += ` L${x + 36} ${base}`;
+    d += ` L${x + 50} ${base} L${x + 54} ${base + 8} L${x + 60} ${base - 92} L${x + 66} ${base + 28} L${x + 72} ${stY}`;
+    if (o.convex) {
+      d += ` Q${x + 96} ${stY - 30} ${x + 128} ${base}`;
+    } else if (o.peaked) {
+      d += ` L${x + 88} ${stY} L${x + 106} ${stY - o.t} L${x + 124} ${base}`;
+    } else {
+      d += ` L${x + 88} ${stY} Q${x + 106} ${stY - o.t} ${x + 126} ${base}`;
+    }
+    const gap = o.spacing + (o.jitter ? Math.round(Math.abs(rng()) * o.jitter) - o.jitter / 2 : 0);
+    x += Math.max(120, gap);
+    n++;
+    d += ` L${x} ${base}`;
+  }
+  d += ` L${W} ${base}`;
+  return svgURI(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    ${ecgPaper(W, H)}
+    <path d="${d}" fill="none" stroke="#16324f" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="16" y="30" font-family="monospace" font-size="21" font-weight="bold" fill="#16324f">${esc(o.lead)}</text>
+    <text x="16" y="${H - 14}" font-family="sans-serif" font-size="16" fill="#8a5a5a">${esc(o.title)}（示意圖 schematic，非真實病人紀錄）</text>
+  </svg>`);
+}
+
+function cxrPneumothoraxSvg() {
+  const W = 760, H = 620;
+  return svgURI(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    <rect width="${W}" height="${H}" fill="#0b0f14"/>
+    <g fill="none" stroke="#9fb3c8" stroke-width="2.4">
+      <path d="M120 90 C90 230 100 400 150 540 L610 540 C660 400 670 230 640 90 C540 60 220 60 120 90 Z"/>
+      <path d="M245 545 C230 575 210 590 180 596"/><path d="M515 545 C530 575 550 590 580 596"/>
+    </g>
+    <g opacity=".92">
+      <path d="M355 100 C346 240 349 400 356 520 L404 520 C411 400 414 240 405 100 Z" fill="#cfdae6" opacity=".55"/>
+      <path d="M300 100 C292 240 296 400 302 520" stroke="#e2e8f0" stroke-width="3" fill="none" stroke-dasharray="7 6"/>
+      <text x="196" y="96" font-family="sans-serif" font-size="17" fill="#7dd3fc">縱膈腔左偏 →</text>
+    </g>
+    <g>
+      <path d="M175 150 C160 280 172 420 205 505 C250 500 288 470 300 430 C286 300 280 210 268 140 Z" fill="#8fa6bd" opacity=".55"/>
+      <text x="150" y="530" font-family="sans-serif" font-size="18" fill="#fca5a5">塌陷的右肺 collapsed lung</text>
+      <path d="M132 120 C118 260 126 400 168 520" stroke="#fca5a5" stroke-width="2.4" fill="none"/>
+      <text x="122" y="245" font-family="sans-serif" font-size="17" fill="#fca5a5">無肺紋理之透亮區</text>
+    </g>
+    <g opacity=".75">
+      <path d="M430 140 C470 260 500 380 520 500" stroke="#94a3b8" stroke-width="2" fill="none"/>
+      <path d="M470 150 C500 250 525 360 545 470" stroke="#94a3b8" stroke-width="2" fill="none"/>
+      <text x="452" y="120" font-family="sans-serif" font-size="17" fill="#a7f3d0">左肺 (正常)</text>
+    </g>
+    <text x="18" y="${H - 16}" font-family="sans-serif" font-size="16" fill="#64748b">胸部 X 光示意圖 (schematic)：右側張力性氣胸 — 非真實影像</text>
+  </svg>`);
+}
+
+function dermTargetSvg() {
+  const W = 760, H = 560;
+  let les = "";
+  const spots = [[170,150,58],[330,120,44],[470,190,66],[250,300,52],[430,340,46],[600,270,40],[160,410,44],[350,450,56],[560,430,50],[620,120,36]];
+  spots.forEach(([cx, cy, r], i) => {
+    les += `<g>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="#f0a5a0" opacity=".55"/>
+      <circle cx="${cx}" cy="${cy}" r="${r * 0.66}" fill="#e07a72" opacity=".7"/>
+      <circle cx="${cx}" cy="${cy}" r="${r * 0.34}" fill="${i % 3 === 0 ? "#5b2a35" : "#8e3b40"}"/>
+    </g>`;
+  });
+  return svgURI(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+    <rect width="${W}" height="${H}" fill="#f4d9c6"/>
+    <rect width="${W}" height="${H}" fill="#e8c4ac" opacity=".35"/>
+    ${les}
+    <rect x="0" y="${H - 34}" width="${W}" height="34" fill="rgba(20,15,12,.55)"/>
+    <text x="14" y="${H - 12}" font-family="sans-serif" font-size="16" fill="#fff">皮膚病灶示意圖 (schematic)：標靶樣病灶 target lesions — 非真實臨床照片</text>
+  </svg>`);
+}
+
+const BUILTIN_IMAGES = {
+  "ekg-stemi":  () => ecgSvg({ st: 34, convex: true, lead: "V3", title: "前胸導程 ST 節段上升" }),
+  "ekg-hyperk": () => ecgSvg({ st: 0, t: 62, peaked: true, p: false, lead: "II", title: "高聳窄基底 T 波、P 波變平" }),
+  "ekg-afib":   () => ecgSvg({ st: 0, t: 13, p: false, jitter: 96, spacing: 168, lead: "II", title: "R-R 間期絕對不規則、無 P 波" }),
+  "cxr-pneumothorax": cxrPneumothoraxSvg,
+  "derm-target": dermTargetSvg,
+};
+const _imgCache = {};
+function resolveImage(url) {
+  if (!url) return "";
+  const s = String(url).trim();
+  if (s.startsWith("builtin:")) {
+    const key = s.slice(8);
+    if (!BUILTIN_IMAGES[key]) return "";
+    if (!_imgCache[key]) _imgCache[key] = BUILTIN_IMAGES[key]();
+    return _imgCache[key];
+  }
+  return s;
+}
+
+/* ------------------------- 2. 題庫正規化 -------------------------
+   盡量寬鬆地接受各種 JSON 寫法，讓匯入題目時不易出錯。
+--------------------------------------------------------------------------- */
+function normalizeQuestion(raw, idx) {
+  const err = (msg) => ({ ok: false, error: msg, raw });
+  if (!raw || typeof raw !== "object") return err("題目不是物件");
+
+  const stem = String(raw.stem ?? raw.question ?? raw.題目 ?? "").trim();
+  if (!stem) return err("缺少題幹 stem");
+
+  /* --- 選項：支援陣列 ["A. xxx"] / ["xxx"] 或物件 {A:"xxx"} --- */
+  let options = [];
+  const src = raw.options ?? raw.choices ?? raw.選項;
+  if (Array.isArray(src)) {
+    src.forEach((o, i) => {
+      const text = typeof o === "string" ? o : String(o?.text ?? o?.label ?? "");
+      const m = text.match(/^\s*\(?([A-Ea-e])\)?\s*[.、．:：)]\s*(.+)$/s);
+      if (m) options.push({ key: m[1].toUpperCase(), text: m[2].trim() });
+      else options.push({ key: (typeof o === "object" && o?.key) ? String(o.key).toUpperCase() : LETTERS[i], text: text.trim() });
+    });
+  } else if (src && typeof src === "object") {
+    Object.keys(src).sort().forEach((k) => options.push({ key: String(k).toUpperCase(), text: String(src[k]).trim() }));
+  }
+  options = options.filter((o) => o.text);
+  if (options.length < 2) return err("選項不足 2 個");
+  /* 若字母重複或缺漏，重新編號以保證唯一 */
+  const seen = new Set();
+  options.forEach((o, i) => {
+    if (!o.key || seen.has(o.key)) o.key = LETTERS[i];
+    seen.add(o.key);
+  });
+
+  /* --- 正解：支援 "A" / "a" / "A." / ["A","C"] / 索引數字 / 完整選項文字 --- */
+  const keys = options.map((o) => o.key);
+  const toKey = (v) => {
+    if (v == null) return null;
+    if (typeof v === "number") {
+      if (v >= 0 && v < keys.length && Number.isInteger(v)) return keys[v];      // 0-based
+      if (v >= 1 && v <= keys.length) return keys[v - 1];                        // 1-based
+      return null;
+    }
+    const s = String(v).trim();
+    const m = s.match(/^\(?([A-Ea-e])\)?[.、．:：)]?$/);
+    if (m) { const k = m[1].toUpperCase(); return keys.includes(k) ? k : null; }
+    const byText = options.find((o) => o.text === s || `${o.key}. ${o.text}` === s);
+    if (byText) return byText.key;
+    if (/^\d+$/.test(s)) return toKey(parseInt(s, 10));
+    return null;
+  };
+  const rawAns = raw.answer ?? raw.correct ?? raw.correct_answer ?? raw.答案;
+  let answers = (Array.isArray(rawAns) ? rawAns : String(rawAns ?? "").split(/[,\s、/]+/))
+    .map(toKey).filter(Boolean);
+  answers = Array.from(new Set(answers));
+  if (!answers.length) {
+    /* 允許 "AC" 這種連寫多選 */
+    const compact = String(rawAns ?? "").toUpperCase().replace(/[^A-E]/g, "").split("");
+    answers = Array.from(new Set(compact.filter((c) => keys.includes(c))));
+  }
+  if (!answers.length) return err("找不到有效的正解 answer");
+
+  /* --- 逐項解析：物件 {A:"..."} 或與選項等長的陣列 --- */
+  let breakdown = {};
+  const bd = raw.option_breakdown ?? raw.options_explanation ?? raw.選項解析;
+  if (Array.isArray(bd)) bd.forEach((t, i) => { if (keys[i]) breakdown[keys[i]] = String(t ?? ""); });
+  else if (bd && typeof bd === "object") Object.keys(bd).forEach((k) => { breakdown[String(k).toUpperCase()] = String(bd[k] ?? ""); });
+
+  let fixes = {};
+  const fx = raw.option_fix ?? raw.修正;
+  if (fx && typeof fx === "object" && !Array.isArray(fx)) Object.keys(fx).forEach((k) => { fixes[String(k).toUpperCase()] = String(fx[k] ?? ""); });
+
+  /* --- 圖片：支援單一字串、陣列，並自動還原 Markdown 連結寫法 [url](url) --- */
+  const unwrapMd = (u) => {
+    const s = String(u).trim();
+    const m = s.match(/^\[(.+?)\]\((.+?)\)$/);
+    return (m ? m[2] : s).trim();
+  };
+  const images = []
+    .concat(raw.image_url ?? raw.image ?? raw.圖片 ?? [])
+    .concat(raw.images ?? [])
+    .flat()
+    .map(unwrapMd)
+    .filter(Boolean);
+
+  return {
+    ok: true,
+    q: {
+      id: String(raw.id ?? raw.qid ?? `Q${String(idx + 1).padStart(3, "0")}`),
+      uid: uid(),
+      category: String(raw.category ?? raw.subject ?? raw.科別 ?? "未分類 (Uncategorized)").trim(),
+      difficulty: raw.difficulty ? String(raw.difficulty) : "",
+      source: raw.source ? String(raw.source) : "",
+      tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
+      stem,
+      images: images.filter(Boolean),
+      imageCaption: String(raw.image_caption ?? raw.圖片說明 ?? "").trim(),
+      options,
+      answers,
+      multi: answers.length > 1,
+      core: String(raw.core_explanation ?? raw.explanation ?? raw.核心解析 ?? "").trim(),
+      breakdown,
+      fixes,
+      reference: String(raw.reference ?? raw.references ?? "").trim(),
+    },
+  };
+}
+
+/** 解析上傳 / 貼上的 JSON 內容 → {questions, errors} */
+function parseBankJSON(text) {
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { throw new Error("JSON 格式錯誤：" + e.message); }
+  let arr = data;
+  if (!Array.isArray(arr)) {
+    arr = data?.questions ?? data?.items ?? data?.data ?? data?.題目;
+  }
+  if (!Array.isArray(arr)) throw new Error("找不到題目陣列。請提供 JSON 陣列，或含有 questions / items / data 欄位的物件。");
+  const questions = [], errors = [];
+  arr.forEach((raw, i) => {
+    const r = normalizeQuestion(raw, i);
+    if (r.ok) questions.push(r.q);
+    else errors.push(`第 ${i + 1} 題：${r.error}`);
+  });
+  return { questions, errors };
+}
+
+/* ------------------------- 3. 全域狀態 ------------------------- */
+const DEFAULT_SETTINGS = {
+  theme: "auto",          // auto | light | dark
+  fontScale: 1,           // 1 | 1.1 | 1.2
+  shuffleQuestions: true, // 零碎練習是否隨機抽題
+  shuffleOptions: false,  // 是否打亂選項順序
+  masteryStreak: 1,       // 錯題需連續答對幾次才移出錯題本
+  instantFeedback: false, // 練習模式即時對答案（預設關閉：全部作答完再交卷）
+};
+
+const state = {
+  view: "home",
+  bank: [],
+  meta: { name: "", loadedAt: null, sources: [] },
+  wrong: [],       // [{qid, q, wrongCount, streak, lastWrongAt, lastChosen}]
+  history: [],     // [{id, mode, title, ts, total, correct, wrong, blank, pct, durationMs, byCat}]
+  settings: Object.assign({}, DEFAULT_SETTINGS),
+  quiz: null,
+  result: null,
+  reviewFilter: "all",
+};
+
+function loadPersisted() {
+  state.settings = Object.assign({}, DEFAULT_SETTINGS, LS.get(K.settings, {}));
+  state.bank = LS.get(K.bank, []) || [];
+  state.meta = LS.get(K.meta, { name: "", loadedAt: null, sources: [] });
+  state.wrong = LS.get(K.wrong, []) || [];
+  state.history = LS.get(K.history, []) || [];
+}
+const saveBank = () => { LS.set(K.bank, state.bank); LS.set(K.meta, state.meta); };
+const saveWrong = () => { LS.set(K.wrong, state.wrong); renderWrongBadge(); };
+const saveHistory = () => LS.set(K.history, state.history.slice(0, 100));
+const saveSettings = () => LS.set(K.settings, state.settings);
+
+/* 依科別給定穩定的顏色類別 */
+const CAT_CLASSES = ["chip-primary", "chip-accent", "chip-violet", "chip-warn", "chip-success", "chip-danger"];
+function catClass(cat) {
+  let h = 0;
+  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
+  return CAT_CLASSES[h % CAT_CLASSES.length];
+}
+const categoriesOf = (bank) => Array.from(new Set(bank.map((q) => q.category))).sort((a, b) => a.localeCompare(b, "zh-Hant"));
+
+/* ------------------------- 4. 共用 UI 元件 ------------------------- */
+function toast(msg, kind = "", ms = 2600) {
+  const wrap = $("#toastWrap");
+  const el = document.createElement("div");
+  el.className = "toast " + kind;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .25s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 260); }, ms);
+}
+
+function openModal(html) {
+  $("#modal").innerHTML = html;
+  $("#modalBackdrop").classList.add("open");
+}
+function closeModal() { $("#modalBackdrop").classList.remove("open"); }
+
+function openSheet(html) {
+  $("#sheetBody").innerHTML = html;
+  $("#sheetBackdrop").classList.add("open");
+}
+function closeSheet() { $("#sheetBackdrop").classList.remove("open"); }
+
+function confirmDialog(title, body, okText = "確認", danger = true) {
+  return new Promise((resolve) => {
+    openModal(`<h3>${esc(title)}</h3>
+      <p class="small muted" style="margin:.4rem 0 1rem">${body}</p>
+      <div class="btn-row" style="justify-content:flex-end">
+        <button class="btn" data-modal="cancel">取消</button>
+        <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-modal="ok">${esc(okText)}</button>
+      </div>`);
+    const h = (e) => {
+      const b = e.target.closest("[data-modal]");
+      if (!b) return;
+      $("#modal").removeEventListener("click", h);
+      closeModal();
+      resolve(b.dataset.modal === "ok");
+    };
+    $("#modal").addEventListener("click", h);
+  });
+}
+
+/* 主題（深色 / 淺色） */
+function applyTheme() {
+  const t = state.settings.theme;
+  const dark = t === "dark" || (t === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  const m = $('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", dark ? "#080e16" : "#0f766e");
+}
+function applyFont() {
+  document.body.style.fontSize = (16 * state.settings.fontScale).toFixed(1) + "px";
+}
+
+function renderWrongBadge() {
+  const b = $("#wrongBadge");
+  if (!b) return;
+  const n = state.wrong.length;
+  b.hidden = n === 0;
+  b.textContent = n > 99 ? "99+" : n;
+}
+
+/* ------------------------- 5. 路由 ------------------------- */
+function go(view) {
+  if (state.quiz && !state.quiz.submitted && view !== "quiz") {
+    /* 離開測驗時自動保存進度 */
+    persistResume();
+  }
+  state.view = view;
+  render();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  $$("#navtabs .navtab").forEach((b) => {
+    const v = b.dataset.nav;
+    const on = v === state.view
+      || (state.view === "quiz" && state.quiz && v === state.quiz.navKey)
+      || (state.view === "result" && state.result && v === state.result.navKey);
+    b.classList.toggle("active", on);
+  });
+  const main = $("#main");
+  const views = {
+    home: viewHome, bank: viewBank, examSetup: viewExamSetup,
+    practiceSetup: viewPracticeSetup, wrong: viewWrong, history: viewHistory,
+    quiz: viewQuiz, result: viewResult,
+  };
+  main.innerHTML = (views[state.view] || viewHome)();
+  if (state.view === "quiz") afterQuizRender();
+  if (state.view === "result") afterResultRender();
+  renderWrongBadge();
+}
+
+/* ------------------------- 6. 首頁 ------------------------- */
+function bankStats() {
+  const total = state.bank.length;
+  const cats = categoriesOf(state.bank);
+  const answered = state.history.reduce((s, h) => s + h.total, 0);
+  const correct = state.history.reduce((s, h) => s + h.correct, 0);
+  const avg = answered ? Math.round((correct / answered) * 100) : 0;
+  return { total, cats, answered, correct, avg };
+}
+
+function viewHome() {
+  const st = bankStats();
+  const resume = LS.get(K.resume, null);
+  const empty = st.total === 0;
+
+  return `<div class="view">
+    ${resume && resume.remain > 0 ? `
+    <div class="card card-pad" style="margin-bottom:1rem; border-color:var(--warn); background:var(--warn-soft)">
+      <div style="display:flex; gap:.8rem; align-items:center; flex-wrap:wrap">
+        <div style="flex:1; min-width:180px">
+          <div style="font-weight:800">有未完成的測驗</div>
+          <div class="small muted">${esc(resume.title)} · 已作答 ${resume.answered}/${resume.total} 題 · ${fmtDate(resume.savedAt)}</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm" data-act="resume-drop">捨棄</button>
+          <button class="btn btn-sm btn-primary" data-act="resume-go">繼續作答</button>
+        </div>
+      </div>
+    </div>` : ""}
+
+    <div class="card card-pad" style="margin-bottom:1rem">
+      <div style="display:flex; gap:.8rem; align-items:flex-start; flex-wrap:wrap">
+        <div style="flex:1; min-width:200px">
+          <h1 style="font-size:1.3rem; margin-bottom:.25rem">內科住院醫師練功坊</h1>
+          <p class="small muted">以歷屆考題、教科書題目與自訂 JSON 題庫進行刻意練習 (deliberate practice)。所有資料只保存在你的瀏覽器，離線亦可使用。</p>
+        </div>
+        <div class="btn-row">
+          ${empty ? `<button class="btn btn-primary" data-act="load-samples">載入內建範例題庫</button>` : ""}
+          <button class="btn" data-act="nav" data-view="bank">🗂️ 題庫管理</button>
+        </div>
+      </div>
+      <hr class="divider" />
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-num">${st.total}</div><div class="stat-lbl">題庫總題數</div></div>
+        <div class="stat"><div class="stat-num">${st.cats.length}</div><div class="stat-lbl">涵蓋科別</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--danger)">${state.wrong.length}</div><div class="stat-lbl">錯題本題數</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--primary)">${st.answered ? st.avg + "%" : "—"}</div><div class="stat-lbl">累計正確率</div></div>
+      </div>
+      ${st.cats.length ? `<div style="margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem">
+        ${st.cats.slice(0, 14).map((c) => `<span class="chip ${catClass(c)}">${esc(c)} · ${state.bank.filter((q) => q.category === c).length}</span>`).join("")}
+        ${st.cats.length > 14 ? `<span class="chip">+${st.cats.length - 14}</span>` : ""}
+      </div>` : ""}
+    </div>
+
+    <div class="sec-title">練習模式</div>
+    <div class="mode-grid">
+      <button class="mode-card" data-act="nav" data-view="examSetup" style="--accent-c:var(--primary); --accent-soft-c:var(--primary-soft)">
+        <div class="mode-ico">📋</div>
+        <div class="mode-name">A · 完整測驗</div>
+        <div class="mode-desc">整份歷屆考題或章節測驗（預設全部題目，約 80 題）。全部作答後一次交卷，取得分數與逐題詳解。</div>
+      </button>
+      <button class="mode-card" data-act="nav" data-view="practiceSetup" style="--accent-c:var(--accent); --accent-soft-c:var(--accent-soft)">
+        <div class="mode-ico">⏱️</div>
+        <div class="mode-name">B · 零碎時間練習</div>
+        <div class="mode-desc">自選 5 / 10 / 20 / 50 / 100 題與次專科範圍，值班空檔就能練。作答完成後統一交卷檢討。</div>
+      </button>
+      <button class="mode-card" data-act="nav" data-view="wrong" style="--accent-c:var(--danger); --accent-soft-c:var(--danger-soft)">
+        <div class="mode-ico">🔁</div>
+        <div class="mode-name">C · 錯題重測</div>
+        <div class="mode-desc">自動記錄 A、B 模式答錯的題目。${state.wrong.length ? `目前累積 <b>${state.wrong.length}</b> 題待攻克。` : "目前錯題本是空的。"}</div>
+      </button>
+    </div>
+
+    ${empty ? `<div class="empty" style="margin-top:1rem">
+      <div class="big">🗂️</div>
+      <div style="font-weight:800; color:var(--text)">尚未載入任何題庫</div>
+      <p class="small" style="margin:.4rem 0 .9rem">可先載入內建範例題庫試用，或到「題庫管理」上傳／貼上自己的 JSON 題目檔。</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-primary" data-act="load-samples">載入內建範例（23 題）</button>
+        <button class="btn" data-act="nav" data-view="bank">前往題庫管理</button>
+      </div>
+    </div>` : ""}
+
+    ${state.history.length ? `<div class="sec-title">最近測驗</div>
+      <div class="card">
+        ${state.history.slice(0, 4).map((h) => historyRow(h)).join("")}
+      </div>` : ""}
+  </div>`;
+}
+
+function historyRow(h) {
+  const color = h.pct >= 80 ? "var(--success)" : h.pct >= 60 ? "var(--warn)" : "var(--danger)";
+  return `<div style="display:flex; align-items:center; gap:.7rem; padding:.7rem .9rem; border-bottom:1px solid var(--border)">
+    <div style="flex:none; width:52px; text-align:center">
+      <div style="font-weight:900; font-size:1.05rem; color:${color}">${h.pct}%</div>
+      <div class="tiny muted">${h.correct}/${h.total}</div>
+    </div>
+    <div style="flex:1; min-width:0">
+      <div style="font-weight:700; font-size:.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(h.title)}</div>
+      <div class="tiny muted">${fmtDate(h.ts)} · 用時 ${fmtTime(h.durationMs)}</div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------- 7. 題庫管理 ------------------------- */
+function viewBank() {
+  const cats = categoriesOf(state.bank);
+  const counts = {};
+  state.bank.forEach((q) => { counts[q.category] = (counts[q.category] || 0) + 1; });
+
+  return `<div class="view">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd">
+        <div class="card-title">🗂️ 目前題庫</div>
+        <div class="btn-row">
+          ${state.bank.length ? `<button class="btn btn-sm" data-act="export-bank">匯出 JSON</button>
+          <button class="btn btn-sm btn-danger" data-act="clear-bank">清空</button>` : ""}
+        </div>
+      </div>
+      <div class="card-pad">
+        ${state.bank.length ? `
+          <div class="stat-grid" style="margin-bottom:.9rem">
+            <div class="stat"><div class="stat-num">${state.bank.length}</div><div class="stat-lbl">題目總數</div></div>
+            <div class="stat"><div class="stat-num">${cats.length}</div><div class="stat-lbl">科別數</div></div>
+            <div class="stat"><div class="stat-num">${state.bank.filter((q) => q.images.length).length}</div><div class="stat-lbl">含影像題</div></div>
+            <div class="stat"><div class="stat-num">${state.bank.filter((q) => q.core || Object.keys(q.breakdown).length).length}</div><div class="stat-lbl">附詳解題</div></div>
+          </div>
+          <div class="tiny muted" style="margin-bottom:.5rem">來源：${esc(state.meta.sources?.join("、") || "—")}${state.meta.loadedAt ? " · 更新於 " + fmtDate(state.meta.loadedAt) : ""}</div>
+          <div style="display:flex; flex-direction:column; gap:.3rem">
+            ${cats.map((c) => `<div class="cat-row">
+              <span class="cat-name" title="${esc(c)}">${esc(c)}</span>
+              <span class="cat-bar"><span class="bar"><i style="width:${(counts[c] / state.bank.length * 100).toFixed(1)}%"></i></span></span>
+              <span class="cat-val">${counts[c]} 題</span>
+            </div>`).join("")}
+          </div>
+        ` : `<div class="empty"><div class="big">📭</div><div>題庫是空的，請由下方載入。</div></div>`}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd"><div class="card-title">📥 載入題庫</div></div>
+      <div class="card-pad">
+        <div class="label">內建範例題庫</div>
+        <div class="btn-row" style="margin-bottom:1rem">
+          <button class="btn" data-act="load-sample" data-which="im">內科綜合示範卷（18 題）</button>
+          <button class="btn" data-act="load-sample" data-which="img">影像判讀示範（5 題，含 EKG / CXR）</button>
+          <button class="btn btn-primary" data-act="load-samples">兩者都載入（23 題）</button>
+        </div>
+
+        <div class="label">上傳 JSON 檔案（可多選，會依下方模式合併）</div>
+        <input type="file" id="fileInput" accept=".json,application/json" multiple
+               class="input" style="padding:.5rem; margin-bottom:1rem" />
+
+        <div class="label">或直接貼上 JSON 內容</div>
+        <textarea class="textarea" id="pasteArea" placeholder='[
+  {
+    "id": "Q001",
+    "category": "心臟內科 (Cardiology)",
+    "stem": "題幹⋯⋯",
+    "image_url": "https://example.com/ekg.jpg",
+    "options": ["A. ⋯", "B. ⋯", "C. ⋯", "D. ⋯"],
+    "answer": "A",
+    "core_explanation": "核心解析⋯⋯",
+    "option_breakdown": { "A": "正確。⋯", "B": "錯誤。⋯ 修正：⋯" }
+  }
+]'></textarea>
+
+        <div style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-top:.8rem">
+          <span class="label" style="margin:0">匯入模式</span>
+          <div class="pill-group" id="importMode">
+            <button class="pill on" data-mode="append">附加到現有題庫</button>
+            <button class="pill" data-mode="replace">取代現有題庫</button>
+          </div>
+          <button class="btn btn-primary" data-act="import-paste" style="margin-left:auto">匯入貼上的內容</button>
+        </div>
+        <p class="tiny muted" style="margin-top:.6rem">附加模式會自動略過 <code>id</code> 重複的題目。所有題庫都保存在此瀏覽器的 localStorage，不會上傳到任何伺服器。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="acc-btn" style="margin:0; border-radius:16px 16px 0 0; border:0; border-bottom:1px solid var(--border)"
+              data-acc="schema" aria-expanded="false">
+        <span>📐 JSON 題庫格式規格（含影像欄位）</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="acc-panel" id="acc-schema" style="padding:1rem">
+        <p class="small" style="margin-bottom:.6rem">最外層為題目物件的<b>陣列</b>（也接受 <code>{"questions": [...]}</code>）。各欄位說明：</p>
+        <div style="overflow-x:auto">
+        <table class="small" style="width:100%; border-collapse:collapse; min-width:520px">
+          <thead><tr style="text-align:left; border-bottom:2px solid var(--border)">
+            <th style="padding:.4rem">欄位</th><th style="padding:.4rem">必填</th><th style="padding:.4rem">說明</th></tr></thead>
+          <tbody>
+            ${[
+              ["id", "建議", "題號，用於錯題本比對與去重；未填時自動編號。"],
+              ["category", "建議", "次專科，例：<code>心臟內科 (Cardiology)</code>。決定篩選器與統計分科。"],
+              ["stem", "✅", "題幹文字，支援換行。"],
+              ["image_url", "選填", "圖片網址、data URI，或 <code>builtin:ekg-stemi</code> 等內建示意圖；亦可用 <code>images</code> 放多張。"],
+              ["image_caption", "選填", "圖片說明文字，顯示於圖片下方與燈箱中。"],
+              ["options", "✅", "陣列 <code>[\"A. ⋯\",\"B. ⋯\"]</code>（有無 A. 前綴皆可）或物件 <code>{\"A\":\"⋯\"}</code>。"],
+              ["answer", "✅", "正解字母 <code>\"A\"</code>；多選可用 <code>[\"A\",\"C\"]</code> 或 <code>\"AC\"</code>；也接受索引數字。"],
+              ["core_explanation", "建議", "核心解析／Pearl，說明正解為何正確。"],
+              ["option_breakdown", "建議", "逐項解析物件 <code>{\"A\":\"正確。⋯\",\"B\":\"錯誤。⋯ 修正：⋯\"}</code>。文字中以「修正：」開頭的部分會被自動抽出，獨立顯示為橘色的「如何改寫此選項才會正確」區塊。"],
+              ["option_fix", "選填", "若想把修正建議與錯誤說明分開，可另用此物件 <code>{\"B\":\"若題幹改為⋯\"}</code>。"],
+              ["difficulty / tags / source / reference", "選填", "難度、標籤、出處與參考文獻，顯示於題目與詳解卡。"],
+            ].map((r) => `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:.4rem"><code>${r[0]}</code></td>
+              <td style="padding:.4rem; white-space:nowrap">${r[1]}</td>
+              <td style="padding:.4rem">${r[2]}</td></tr>`).join("")}
+          </tbody>
+        </table>
+        </div>
+        <div class="btn-row" style="margin-top:.9rem">
+          <button class="btn btn-sm" data-act="download-template">下載空白範本 JSON</button>
+          <button class="btn btn-sm" data-act="copy-template">複製範本到剪貼簿</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------- 8. 測驗設定頁 ------------------------- */
+function catFilterHTML(selected) {
+  const cats = categoriesOf(state.bank);
+  if (!cats.length) return `<p class="small muted">尚無科別資料。</p>`;
+  return `<div class="pill-group" id="catFilter">
+    <button class="pill ${selected.length === 0 ? "on" : ""}" data-cat="__all">全部科別</button>
+    ${cats.map((c) => `<button class="pill ${selected.includes(c) ? "on" : ""}" data-cat="${esc(c)}">${esc(c)}<span class="tiny" style="opacity:.75">${state.bank.filter((q) => q.category === c).length}</span></button>`).join("")}
+  </div>`;
+}
+
+const setupState = { exam: { cats: [], limitMin: 0, shuffle: false }, practice: { cats: [], count: 10, shuffle: true } };
+
+function viewExamSetup() {
+  if (!state.bank.length) return emptyBankView("完整測驗");
+  const s = setupState.exam;
+  const pool = s.cats.length ? state.bank.filter((q) => s.cats.includes(q.category)) : state.bank;
+  return `<div class="view">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd"><div class="card-title">📋 A · 完整測驗 / 整份考卷</div></div>
+      <div class="card-pad">
+        <p class="small muted" style="margin-bottom:1rem">適用於整份歷屆試題或教科書章節測驗：一次作答全部題目，交卷後才顯示分數與逐題詳解。</p>
+
+        <div class="field">
+          <span class="label">測驗範圍（不選＝整份題庫）</span>
+          ${catFilterHTML(s.cats)}
+        </div>
+
+        <div class="field">
+          <span class="label">作答時間限制</span>
+          <div class="pill-group" id="limitPills">
+            ${[0, 60, 90, 120, 180].map((m) => `<button class="pill ${s.limitMin === m ? "on" : ""}" data-limit="${m}">${m === 0 ? "不限時" : m + " 分鐘"}</button>`).join("")}
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">出題方式</span>
+          <div class="pill-group">
+            <button class="pill ${s.shuffle ? "" : "on"}" data-act="exam-order" data-v="0">依題庫原始順序</button>
+            <button class="pill ${s.shuffle ? "on" : ""}" data-act="exam-order" data-v="1">隨機打亂題序</button>
+          </div>
+        </div>
+
+        <div class="card card-pad" style="background:var(--surface-2); margin-top:1.2rem">
+          <div style="display:flex; align-items:center; gap:.8rem; flex-wrap:wrap">
+            <div style="flex:1; min-width:150px">
+              <div class="stat-num">${pool.length} 題</div>
+              <div class="stat-lbl">本次應試題數${s.limitMin ? ` · 限時 ${s.limitMin} 分鐘` : ""}</div>
+            </div>
+            <button class="btn btn-primary btn-lg" data-act="start-exam" ${pool.length ? "" : "disabled"}>開始測驗 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewPracticeSetup() {
+  if (!state.bank.length) return emptyBankView("零碎時間練習");
+  const s = setupState.practice;
+  const pool = s.cats.length ? state.bank.filter((q) => s.cats.includes(q.category)) : state.bank;
+  const n = Math.min(s.count, pool.length);
+  return `<div class="view">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd"><div class="card-title">⏱️ B · 零碎時間練習</div></div>
+      <div class="card-pad">
+        <p class="small muted" style="margin-bottom:1rem">值班空檔、通勤、跟診之間的 5 分鐘也能練。選好題數與次專科，作答完成後統一交卷檢討。</p>
+
+        <div class="field">
+          <span class="label">題數</span>
+          <div class="pill-group" id="countPills">
+            ${[5, 10, 20, 50, 100].map((c) => `<button class="pill ${s.count === c ? "on" : ""}" data-count="${c}">${c} 題</button>`).join("")}
+            <button class="pill ${s.count === 9999 ? "on" : ""}" data-count="9999">全部</button>
+          </div>
+          <input type="range" min="5" max="${Math.max(5, Math.min(100, pool.length))}" step="1"
+                 value="${clamp(s.count === 9999 ? pool.length : s.count, 5, Math.max(5, Math.min(100, pool.length)))}"
+                 id="countSlider" style="width:100%; margin-top:.7rem; accent-color:var(--primary)" />
+          <div class="tiny muted" style="text-align:right">拖曳可微調題數</div>
+        </div>
+
+        <div class="field">
+          <span class="label">次專科範圍（可複選）</span>
+          ${catFilterHTML(s.cats)}
+        </div>
+
+        <div class="field">
+          <span class="label">選項順序</span>
+          <div class="pill-group">
+            <button class="pill ${state.settings.shuffleOptions ? "" : "on"}" data-act="opt-order" data-v="0">維持原順序</button>
+            <button class="pill ${state.settings.shuffleOptions ? "on" : ""}" data-act="opt-order" data-v="1">打亂選項</button>
+          </div>
+        </div>
+
+        <div class="card card-pad" style="background:var(--surface-2); margin-top:1.2rem">
+          <div style="display:flex; align-items:center; gap:.8rem; flex-wrap:wrap">
+            <div style="flex:1; min-width:150px">
+              <div class="stat-num" id="practiceCountVal">${n} 題</div>
+              <div class="stat-lbl">將從 ${pool.length} 題符合條件的題目中隨機抽出</div>
+            </div>
+            <button class="btn btn-primary btn-lg" data-act="start-practice" ${pool.length ? "" : "disabled"}>開始練習 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function emptyBankView(name) {
+  return `<div class="view">
+    <div class="empty">
+      <div class="big">🗂️</div>
+      <div style="font-weight:800; color:var(--text)">「${esc(name)}」需要先載入題庫</div>
+      <p class="small" style="margin:.4rem 0 .9rem">請先載入內建範例，或上傳自己的 JSON 題目檔。</p>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-primary" data-act="load-samples">載入內建範例</button>
+        <button class="btn" data-act="nav" data-view="bank">前往題庫管理</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------- 9. 錯題重測區 ------------------------- */
+const wrongSetup = { cats: [], count: 9999 };
+
+function viewWrong() {
+  const list = state.wrong;
+  const cats = Array.from(new Set(list.map((w) => w.q.category))).sort();
+  const counts = {};
+  list.forEach((w) => { counts[w.q.category] = (counts[w.q.category] || 0) + 1; });
+  const pool = wrongSetup.cats.length ? list.filter((w) => wrongSetup.cats.includes(w.q.category)) : list;
+  const n = Math.min(wrongSetup.count, pool.length);
+
+  return `<div class="view">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd">
+        <div class="card-title">🔁 C · 錯題重測區</div>
+        ${list.length ? `<div class="btn-row">
+          <button class="btn btn-sm" data-act="export-wrong">匯出錯題</button>
+          <button class="btn btn-sm btn-danger" data-act="clear-wrong">清空錯題本</button>
+        </div>` : ""}
+      </div>
+      <div class="card-pad">
+        ${!list.length ? `<div class="empty">
+            <div class="big">🎉</div>
+            <div style="font-weight:800; color:var(--text)">錯題本目前是空的</div>
+            <p class="small" style="margin-top:.4rem">在「完整測驗」或「零碎練習」中答錯的題目，會自動收錄到這裡。</p>
+          </div>` : `
+          <div class="stat-grid" style="margin-bottom:1rem">
+            <div class="stat"><div class="stat-num" style="color:var(--danger)">${list.length}</div><div class="stat-lbl">累積錯題</div></div>
+            <div class="stat"><div class="stat-num">${cats.length}</div><div class="stat-lbl">涉及科別</div></div>
+            <div class="stat"><div class="stat-num">${list.filter((w) => w.wrongCount >= 2).length}</div><div class="stat-lbl">重複錯 ≥2 次</div></div>
+            <div class="stat"><div class="stat-num">${state.settings.masteryStreak}</div><div class="stat-lbl">連對幾次即移出</div></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:.3rem; margin-bottom:1rem">
+            ${cats.map((c) => `<div class="cat-row">
+              <span class="cat-name" title="${esc(c)}">${esc(c)}</span>
+              <span class="cat-bar"><span class="bar"><i style="width:${(counts[c] / list.length * 100).toFixed(1)}%; background:var(--danger)"></i></span></span>
+              <span class="cat-val">${counts[c]} 題</span>
+            </div>`).join("")}
+          </div>
+
+          <div class="field">
+            <span class="label">重測範圍</span>
+            <div class="pill-group" id="wrongCatFilter">
+              <button class="pill ${wrongSetup.cats.length === 0 ? "on" : ""}" data-wcat="__all">全部</button>
+              ${cats.map((c) => `<button class="pill ${wrongSetup.cats.includes(c) ? "on" : ""}" data-wcat="${esc(c)}">${esc(c)}</button>`).join("")}
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">重測題數</span>
+            <div class="pill-group" id="wrongCountPills">
+              ${[5, 10, 20, 50].map((c) => `<button class="pill ${wrongSetup.count === c ? "on" : ""}" data-wcount="${c}">${c} 題</button>`).join("")}
+              <button class="pill ${wrongSetup.count === 9999 ? "on" : ""}" data-wcount="9999">全部 (${pool.length})</button>
+            </div>
+          </div>
+
+          <div class="card card-pad" style="background:var(--surface-2)">
+            <div style="display:flex; align-items:center; gap:.8rem; flex-wrap:wrap">
+              <div style="flex:1; min-width:150px">
+                <div class="stat-num">${n} 題</div>
+                <div class="stat-lbl">本次重測題數（答對 ${state.settings.masteryStreak} 次後自動移出錯題本）</div>
+              </div>
+              <button class="btn btn-primary btn-lg" data-act="start-wrong" ${n ? "" : "disabled"}>開始錯題重測 →</button>
+            </div>
+          </div>
+
+          <div class="sec-title">錯題清單</div>
+          <div style="display:flex; flex-direction:column; gap:.5rem">
+            ${list.slice(0, 60).map((w, i) => `<div class="card card-pad" style="padding:.7rem .85rem">
+              <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:.3rem">
+                <span class="chip ${catClass(w.q.category)}">${esc(w.q.category)}</span>
+                <span class="chip chip-danger">錯 ${w.wrongCount} 次</span>
+                ${w.streak ? `<span class="chip chip-success">已連對 ${w.streak}</span>` : ""}
+                <span class="tiny muted mono">${esc(w.q.id)}</span>
+                <button class="btn btn-sm btn-ghost" style="margin-left:auto" data-act="drop-wrong" data-i="${i}" title="從錯題本移除">✕</button>
+              </div>
+              <div class="small" style="color:var(--text-2); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden">${esc(w.q.stem)}</div>
+            </div>`).join("")}
+            ${list.length > 60 ? `<p class="tiny muted" style="text-align:center">僅顯示前 60 題，共 ${list.length} 題</p>` : ""}
+          </div>
+        `}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------- 10. 學習紀錄 ------------------------- */
+function viewHistory() {
+  const h = state.history;
+  const byCat = {};
+  h.forEach((rec) => {
+    Object.entries(rec.byCat || {}).forEach(([c, v]) => {
+      byCat[c] = byCat[c] || { c: 0, t: 0 };
+      byCat[c].c += v.c; byCat[c].t += v.t;
+    });
+  });
+  const cats = Object.keys(byCat).sort((a, b) => (byCat[a].c / byCat[a].t) - (byCat[b].c / byCat[b].t));
+
+  return `<div class="view">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-hd">
+        <div class="card-title">📈 學習紀錄</div>
+        ${h.length ? `<button class="btn btn-sm btn-danger" data-act="clear-history">清除紀錄</button>` : ""}
+      </div>
+      <div class="card-pad">
+        ${!h.length ? `<div class="empty"><div class="big">📈</div><div>還沒有測驗紀錄，完成一次測驗後就會出現在這裡。</div></div>` : `
+          <div class="stat-grid" style="margin-bottom:1rem">
+            <div class="stat"><div class="stat-num">${h.length}</div><div class="stat-lbl">測驗次數</div></div>
+            <div class="stat"><div class="stat-num">${h.reduce((s, x) => s + x.total, 0)}</div><div class="stat-lbl">累計作答題數</div></div>
+            <div class="stat"><div class="stat-num" style="color:var(--primary)">${Math.round(h.reduce((s, x) => s + x.correct, 0) / Math.max(1, h.reduce((s, x) => s + x.total, 0)) * 100)}%</div><div class="stat-lbl">總正確率</div></div>
+            <div class="stat"><div class="stat-num">${fmtTime(h.reduce((s, x) => s + (x.durationMs || 0), 0))}</div><div class="stat-lbl">累計時間</div></div>
+          </div>
+
+          ${cats.length ? `<div class="sec-title">分科表現（由弱到強）</div>
+          <div style="display:flex; flex-direction:column; gap:.3rem; margin-bottom:1rem">
+            ${cats.map((c) => {
+              const p = Math.round(byCat[c].c / byCat[c].t * 100);
+              const col = p >= 80 ? "var(--success)" : p >= 60 ? "var(--warn)" : "var(--danger)";
+              return `<div class="cat-row">
+                <span class="cat-name" title="${esc(c)}">${esc(c)}</span>
+                <span class="cat-bar"><span class="bar"><i style="width:${p}%; background:${col}"></i></span></span>
+                <span class="cat-val" style="color:${col}">${p}% <span class="tiny muted">(${byCat[c].c}/${byCat[c].t})</span></span>
+              </div>`;
+            }).join("")}
+          </div>` : ""}
+
+          <div class="sec-title">歷次測驗</div>
+          <div class="card">${h.map((rec) => historyRow(rec)).join("")}</div>
+        `}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------- 11. 測驗引擎 ------------------------- */
+let timerHandle = null;
+
+function startQuiz({ mode, navKey, title, questions, shuffleQ = false, limitMin = 0 }) {
+  if (!questions.length) { toast("沒有符合條件的題目", "err"); return; }
+  let qs = shuffleQ ? shuffle(questions) : questions.slice();
+  if (state.settings.shuffleOptions) {
+    qs = qs.map((q) => Object.assign({}, q, { options: shuffle(q.options) }));
+  }
+  state.quiz = {
+    mode, navKey, title,
+    qs,
+    answers: {},
+    flags: {},
+    idx: 0,
+    startedAt: Date.now(),
+    limitMs: limitMin * 60000,
+    submitted: false,
+  };
+  state.result = null;
+  LS.del(K.resume);
+  go("quiz");
+}
+
+function persistResume() {
+  const z = state.quiz;
+  if (!z || z.submitted) return;
+  LS.set(K.resume, {
+    title: z.title, mode: z.mode, navKey: z.navKey,
+    ids: z.qs.map((q) => q.id),
+    qs: z.qs, answers: z.answers, flags: z.flags, idx: z.idx,
+    startedAt: z.startedAt, limitMs: z.limitMs,
+    total: z.qs.length,
+    answered: Object.keys(z.answers).length,
+    remain: z.qs.length - Object.keys(z.answers).length,
+    savedAt: Date.now(),
+  });
+}
+
+function resumeQuiz() {
+  const r = LS.get(K.resume, null);
+  if (!r) { toast("找不到未完成的測驗", "err"); return; }
+  state.quiz = {
+    mode: r.mode, navKey: r.navKey, title: r.title, qs: r.qs,
+    answers: r.answers || {}, flags: r.flags || {}, idx: r.idx || 0,
+    startedAt: Date.now() - (r.savedAt - r.startedAt), limitMs: r.limitMs || 0, submitted: false,
+  };
+  go("quiz");
+}
+
+const isCorrect = (q, chosen) => {
+  if (!chosen || !chosen.length) return false;
+  const a = q.answers.slice().sort().join(",");
+  return chosen.slice().sort().join(",") === a;
+};
+
+function pickOption(key) {
+  const z = state.quiz;
+  if (!z || z.submitted) return;
+  const q = z.qs[z.idx];
+  const cur = z.answers[z.idx] || [];
+  if (q.multi) {
+    z.answers[z.idx] = cur.includes(key) ? cur.filter((k) => k !== key) : cur.concat(key);
+    if (!z.answers[z.idx].length) delete z.answers[z.idx];
+    renderQuizBody();
+  } else {
+    z.answers[z.idx] = [key];
+    renderQuizBody();
+    /* 單選：自動前進到下一題（最後一題則停留） */
+    if (z.idx < z.qs.length - 1) setTimeout(() => { z.idx++; renderQuizBody(); }, 220);
+  }
+  persistResume();
+}
+
+function gotoQ(i) {
+  const z = state.quiz;
+  if (!z) return;
+  z.idx = clamp(i, 0, z.qs.length - 1);
+  renderQuizBody();
+  closeSheet();
+  const el = $("#quizTop");
+  if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function submitQuiz(auto = false) {
+  const z = state.quiz;
+  if (!z || z.submitted) return;
+  z.submitted = true;
+  z.endedAt = Date.now();
+  stopTimer();
+  LS.del(K.resume);
+
+  const byCat = {};
+  let correct = 0, wrong = 0, blank = 0;
+  z.qs.forEach((q, i) => {
+    const chosen = z.answers[i] || [];
+    const ok = isCorrect(q, chosen);
+    byCat[q.category] = byCat[q.category] || { c: 0, t: 0 };
+    byCat[q.category].t++;
+    if (!chosen.length) blank++;
+    else if (ok) { correct++; byCat[q.category].c++; }
+    else wrong++;
+    recordAnswer(q, chosen, ok);
+  });
+  saveWrong();
+
+  const total = z.qs.length;
+  const pct = total ? Math.round((correct / total) * 100) : 0;
+  const durationMs = z.endedAt - z.startedAt;
+
+  const rec = {
+    id: uid(), mode: z.mode, title: z.title, ts: z.endedAt,
+    total, correct, wrong, blank, pct, durationMs, byCat,
+  };
+  state.history.unshift(rec);
+  saveHistory();
+
+  state.result = {
+    title: z.title, mode: z.mode, navKey: z.navKey,
+    qs: z.qs, answers: z.answers, flags: z.flags,
+    total, correct, wrong, blank, pct, durationMs, byCat, ts: z.endedAt, auto,
+  };
+  state.reviewFilter = "all";
+  go("result");
+}
+
+/** 錯題本維護：答錯收錄；答對且已在錯題本 → 連對達標後移除 */
+function recordAnswer(q, chosen, ok) {
+  const idx = state.wrong.findIndex((w) => w.qid === q.id && w.q.stem === q.stem);
+  if (!ok) {
+    /* 答錯或未作答皆收錄（未作答代表尚未掌握） */
+    if (idx >= 0) {
+      state.wrong[idx].wrongCount++;
+      state.wrong[idx].streak = 0;
+      state.wrong[idx].lastWrongAt = Date.now();
+      state.wrong[idx].lastChosen = chosen;
+    } else {
+      state.wrong.unshift({
+        qid: q.id, q: Object.assign({}, q, { options: q.options.slice() }),
+        wrongCount: 1, streak: 0, lastWrongAt: Date.now(), lastChosen: chosen,
+      });
+    }
+  } else if (idx >= 0) {
+    state.wrong[idx].streak = (state.wrong[idx].streak || 0) + 1;
+    if (state.wrong[idx].streak >= state.settings.masteryStreak) state.wrong.splice(idx, 1);
+  }
+}
+
+/* 計時器 */
+function startTimer() {
+  stopTimer();
+  timerHandle = setInterval(() => {
+    const z = state.quiz;
+    if (!z || z.submitted) return stopTimer();
+    const el = $("#timerVal");
+    const elapsed = Date.now() - z.startedAt;
+    if (z.limitMs) {
+      const left = z.limitMs - elapsed;
+      if (el) {
+        el.textContent = fmtTime(Math.max(0, left));
+        el.style.color = left < 300000 ? "var(--danger)" : "";
+      }
+      if (left <= 0) { toast("時間到，系統自動交卷", "err"); submitQuiz(true); }
+    } else if (el) el.textContent = fmtTime(elapsed);
+  }, 1000);
+}
+function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+
+/* ------------------------- 12. 測驗畫面 ------------------------- */
+function qnavHTML(inSheet = false) {
+  const z = state.quiz;
+  return `<div class="qnav-grid">
+    ${z.qs.map((q, i) => {
+      const answered = (z.answers[i] || []).length > 0;
+      return `<button class="qnav-btn ${answered ? "answered" : ""} ${i === z.idx ? "current" : ""} ${z.flags[i] ? "flagged" : ""}"
+        data-act="jump" data-i="${i}" title="第 ${i + 1} 題${answered ? "（已作答）" : ""}">${i + 1}</button>`;
+    }).join("")}
+  </div>
+  <div class="legend" style="margin-top:.7rem">
+    <span><i style="background:var(--primary-soft); border:1.5px solid var(--primary)"></i>已作答</span>
+    <span><i style="background:var(--surface-2); border:1.5px solid var(--border-strong)"></i>未作答</span>
+    <span><i style="background:var(--warn)"></i>已標記</span>
+  </div>
+  ${inSheet ? `<button class="btn btn-primary btn-block" style="margin-top:.9rem" data-act="submit">交卷並看詳解</button>` : ""}`;
+}
+
+function viewQuiz() {
+  const z = state.quiz;
+  if (!z) return viewHome();
+  const answered = Object.keys(z.answers).length;
+  const pct = Math.round((answered / z.qs.length) * 100);
+
+  return `<div class="view wide" id="quizTop">
+    <div class="quiz-wrap">
+      <aside class="qnav-panel card">
+        <div class="qnav-inner">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.6rem">
+            <div style="font-weight:800; font-size:.9rem">題號導覽</div>
+            <span class="chip chip-primary">${answered}/${z.qs.length}</span>
+          </div>
+          ${qnavHTML()}
+          <button class="btn btn-primary btn-block" style="margin-top:.9rem" data-act="submit">交卷並看詳解</button>
+          <button class="btn btn-ghost btn-block btn-sm" style="margin-top:.4rem" data-act="abort">離開測驗</button>
+          <div class="kbd-help tiny muted" style="margin-top:.8rem; flex-direction:column; gap:.2rem">
+            <div><kbd>A</kbd>–<kbd>E</kbd> / <kbd>1</kbd>–<kbd>5</kbd> 選答</div>
+            <div><kbd>←</kbd><kbd>→</kbd> 換題 · <kbd>F</kbd> 標記 · <kbd>Enter</kbd> 下一題</div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="quiz-main">
+        <div class="card card-pad" style="margin-bottom:.8rem">
+          <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-bottom:.6rem">
+            <span class="chip chip-primary">${esc(z.title)}</span>
+            <span class="chip">⏱ <b id="timerVal">${fmtTime(z.limitMs ? z.limitMs : 0)}</b></span>
+            <button class="btn btn-sm btn-primary" style="margin-left:auto" data-act="submit">交卷</button>
+          </div>
+          <div class="progress-strip"><i style="width:${pct}%"></i></div>
+          <div class="tiny muted" style="display:flex; justify-content:space-between">
+            <span>作答進度 ${answered}/${z.qs.length}</span><span>${pct}%</span>
+          </div>
+        </div>
+
+        <div class="card card-pad" id="quizBody">${quizBodyHTML()}</div>
+
+        <div class="quiz-footer">
+          <button class="btn" data-act="prev" ${z.idx === 0 ? "disabled" : ""}>← 上一題</button>
+          <button class="btn btn-mobile-nav" data-act="opensheet">題號 ${z.idx + 1}/${z.qs.length}</button>
+          <button class="btn ${z.flags[z.idx] ? "btn-accent" : ""}" data-act="flag" title="標記此題稍後檢視">${z.flags[z.idx] ? "★ 已標記" : "☆ 標記"}</button>
+          ${z.idx === z.qs.length - 1
+            ? `<button class="btn btn-primary" data-act="submit">交卷 →</button>`
+            : `<button class="btn btn-primary" data-act="next">下一題 →</button>`}
+        </div>
+      </section>
+    </div>
+  </div>`;
+}
+
+function quizBodyHTML() {
+  const z = state.quiz;
+  const q = z.qs[z.idx];
+  const chosen = z.answers[z.idx] || [];
+  return `
+    <div class="q-head">
+      <span class="q-index">第 ${z.idx + 1} / ${z.qs.length} 題</span>
+      <span class="chip ${catClass(q.category)}">${esc(q.category)}</span>
+      ${q.difficulty ? `<span class="chip">難度 ${esc(q.difficulty)}</span>` : ""}
+      ${q.multi ? `<span class="chip chip-warn">複選題</span>` : ""}
+      ${z.flags[z.idx] ? `<span class="chip chip-accent">★ 已標記</span>` : ""}
+      <span class="tiny muted mono" style="margin-left:auto">${esc(q.id)}</span>
+    </div>
+    <div class="q-stem">${esc(q.stem)}</div>
+    ${imagesHTML(q)}
+    <div class="opts">
+      ${q.options.map((o) => `
+        <button class="opt ${chosen.includes(o.key) ? "sel" : ""}" data-act="pick" data-key="${esc(o.key)}">
+          <span class="opt-key">${esc(o.key)}</span>
+          <span class="opt-text">${esc(o.text)}</span>
+        </button>`).join("")}
+    </div>
+    ${q.multi ? `<p class="tiny muted" style="margin-top:.6rem">此題為複選題，可點選多個選項；再次點擊可取消。</p>` : ""}`;
+}
+
+function imagesHTML(q) {
+  if (!q.images || !q.images.length) return "";
+  return q.images.map((raw, i) => {
+    const src = resolveImage(raw);
+    if (!src) return "";
+    const cap = q.imageCaption || "";
+    return `<div class="q-img-box">
+      <img class="q-img" src="${esc(src)}" alt="${esc(cap || "題目附圖 " + (i + 1))}" loading="lazy"
+           data-act="zoom" data-src="${esc(src)}" data-cap="${esc(cap)}" />
+      <span class="zoom-hint">🔍 點擊放大</span>
+      ${cap ? `<div class="q-img-cap"><span>${esc(cap)}</span><span class="tiny">可雙指縮放</span></div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderQuizBody() {
+  const body = $("#quizBody");
+  if (!body) return render();
+  body.innerHTML = quizBodyHTML();
+  /* 同步側欄與底部列 */
+  const z = state.quiz;
+  const answered = Object.keys(z.answers).length;
+  const pct = Math.round((answered / z.qs.length) * 100);
+  const panel = $(".qnav-panel .qnav-inner");
+  if (panel) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = qnavHTML();
+    panel.querySelector(".qnav-grid").replaceWith(tmp.querySelector(".qnav-grid"));
+    const chip = panel.querySelector(".chip-primary");
+    if (chip) chip.textContent = `${answered}/${z.qs.length}`;
+  }
+  const strip = $(".progress-strip > i");
+  if (strip) strip.style.width = pct + "%";
+  const stat = $(".progress-strip + .tiny");
+  if (stat) stat.innerHTML = `<span>作答進度 ${answered}/${z.qs.length}</span><span>${pct}%</span>`;
+  const footer = $(".quiz-footer");
+  if (footer) {
+    const prev = footer.querySelector('[data-act="prev"]');
+    if (prev) prev.disabled = z.idx === 0;
+    const sheetBtn = footer.querySelector('[data-act="opensheet"]');
+    if (sheetBtn) sheetBtn.textContent = `題號 ${z.idx + 1}/${z.qs.length}`;
+    const flagBtn = footer.querySelector('[data-act="flag"]');
+    if (flagBtn) {
+      flagBtn.textContent = z.flags[z.idx] ? "★ 已標記" : "☆ 標記";
+      flagBtn.classList.toggle("btn-accent", !!z.flags[z.idx]);
+    }
+    const nextWrap = footer.querySelector('[data-act="next"], [data-act="submit"]');
+    if (nextWrap) {
+      const isLast = z.idx === z.qs.length - 1;
+      nextWrap.dataset.act = isLast ? "submit" : "next";
+      nextWrap.textContent = isLast ? "交卷 →" : "下一題 →";
+      nextWrap.className = "btn btn-primary";
+    }
+  }
+}
+
+function afterQuizRender() { startTimer(); }
+
+/* ------------------------- 13. 詳解卡與結果頁 ------------------------- */
+function splitFix(text) {
+  const s = String(text || "").trim();
+  const m = s.match(/^([\s\S]*?)(?:修正|改寫|修正方向)\s*[:：]\s*([\s\S]+)$/);
+  if (m) return { reason: m[1].trim().replace(/[，,、]\s*$/, ""), fix: m[2].trim() };
+  return { reason: s, fix: "" };
+}
+
+function reviewCard(q, i, chosen, opts = {}) {
+  const ok = isCorrect(q, chosen);
+  const blank = !chosen.length;
+  const cls = blank ? "skip" : ok ? "ok" : "bad";
+  const label = blank ? "⊘ 未作答" : ok ? "✓ 答對" : "✗ 答錯";
+  const accId = `acc-r-${i}`;
+  const open = opts.open ? "open" : "";
+
+  const optHTML = q.options.map((o) => {
+    const isAns = q.answers.includes(o.key);
+    const isYou = chosen.includes(o.key);
+    const c = isAns ? "ok" : isYou ? "bad" : "";
+    return `<div class="opt locked ${c}">
+      <span class="opt-key">${esc(o.key)}</span>
+      <span class="opt-text">${esc(o.text)}</span>
+      ${isAns ? `<span class="opt-tag ok">正解</span>` : isYou ? `<span class="opt-tag bad">你的選擇</span>` : ""}
+    </div>`;
+  }).join("");
+
+  const brkHTML = q.options.map((o) => {
+    const isAns = q.answers.includes(o.key);
+    const isYou = chosen.includes(o.key) && !isAns;
+    const raw = q.breakdown[o.key] || "";
+    const { reason, fix } = splitFix(raw);
+    const extraFix = q.fixes[o.key] || "";
+    const finalFix = fix || extraFix;
+    const body = reason || (isAns ? "（本題未提供正解說明）" : "（本題未提供此選項的解析）");
+    return `<div class="brk-item ${isAns ? "is-ans" : isYou ? "is-you" : ""}">
+      <span class="brk-key">${esc(o.key)}</span>
+      <div class="brk-body">
+        <div class="brk-opt">${esc(o.text)} ${isAns ? '<span class="chip chip-success" style="margin-left:.3rem">正解</span>' : ""}${isYou ? '<span class="chip chip-danger" style="margin-left:.3rem">你的選擇</span>' : ""}</div>
+        <div class="brk-txt">${esc(body)}</div>
+        ${finalFix ? `<div class="brk-fix"><b>✎ 如何修正才會正確：</b>${esc(finalFix)}</div>`
+          : (!isAns && !raw ? `<div class="brk-fix">✎ 此選項尚未提供「如何改寫才正確」的說明，可於 JSON 的 <code>option_breakdown</code> 內以「修正：⋯」補充。</div>` : "")}
+      </div>
+    </div>`;
+  }).join("");
+
+  return `<div class="card review-card" data-status="${blank ? "blank" : ok ? "ok" : "bad"}">
+    <div class="review-hd ${cls}">
+      <span>${label}</span>
+      <span class="chip">第 ${i + 1} 題</span>
+      <span class="chip ${catClass(q.category)}">${esc(q.category)}</span>
+      ${q.difficulty ? `<span class="chip">難度 ${esc(q.difficulty)}</span>` : ""}
+      <span class="tiny mono" style="margin-left:auto; opacity:.8">${esc(q.id)}</span>
+    </div>
+    <div class="review-body">
+      <div class="q-stem" style="font-size:.97rem">${esc(q.stem)}</div>
+      ${imagesHTML(q)}
+      <div class="opts">${optHTML}</div>
+      <div class="small" style="margin-top:.7rem; color:var(--muted)">
+        正解：<b style="color:var(--success)">${q.answers.join("、")}</b>
+        ${blank ? " · 你未作答" : ` · 你的選擇：<b style="color:${ok ? "var(--success)" : "var(--danger)"}">${chosen.join("、")}</b>`}
+      </div>
+
+      <button class="acc-btn" data-acc="r-${i}" aria-expanded="${open ? "true" : "false"}">
+        <span>📖 ${open ? "收合" : "展開"}完整詳解（核心解析 + 選項逐項解析與修正）</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="acc-panel ${open}" id="${accId}">
+        ${q.core ? `<div class="expl-block">
+          <div class="h">🩺 核心解析 CORE CONCEPT / PEARL</div>
+          <div class="b">${esc(q.core)}</div>
+        </div>` : `<div class="expl-block"><div class="h">🩺 核心解析</div><div class="b">（本題未提供核心解析，可於 JSON 的 core_explanation 補充。）</div></div>`}
+        <div class="sec-title" style="margin:.9rem 0 .5rem">選項逐項解析與修正</div>
+        <div class="brk">${brkHTML}</div>
+        ${q.tags.length || q.source || q.reference ? `<div style="margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; align-items:center">
+          ${q.tags.map((t) => `<span class="chip">#${esc(t)}</span>`).join("")}
+          ${q.source ? `<span class="chip">出處：${esc(q.source)}</span>` : ""}
+          ${q.reference ? `<span class="chip">參考：${esc(q.reference)}</span>` : ""}
+        </div>` : ""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewResult() {
+  const r = state.result;
+  if (!r) return viewHome();
+  const color = r.pct >= 80 ? "var(--success)" : r.pct >= 60 ? "var(--warn)" : "var(--danger)";
+  const cats = Object.keys(r.byCat).sort();
+  const f = state.reviewFilter;
+
+  const cards = r.qs.map((q, i) => {
+    const chosen = r.answers[i] || [];
+    const ok = isCorrect(q, chosen);
+    const status = !chosen.length ? "blank" : ok ? "ok" : "bad";
+    if (f === "wrong" && status === "ok") return "";
+    if (f === "blank" && status !== "blank") return "";
+    return reviewCard(q, i, chosen, { open: f === "wrong" && status !== "ok" });
+  }).join("");
+
+  return `<div class="view">
+    <div class="score-hero" style="margin-bottom:1rem">
+      <div class="ring" style="--p:${r.pct}; --c:${color}">
+        <div class="ring-in"><div class="ring-pct" style="color:${color}">${r.pct}%</div><div class="ring-lbl">總分</div></div>
+      </div>
+      <div style="flex:1; min-width:200px">
+        <h2 style="font-size:1.1rem; margin-bottom:.15rem">${esc(r.title)}</h2>
+        <p class="tiny muted" style="margin-bottom:.7rem">${fmtDate(r.ts)} · 作答時間 ${fmtTime(r.durationMs)}${r.auto ? " · 時間到自動交卷" : ""}</p>
+        <div class="stat-grid">
+          <div class="stat"><div class="stat-num" style="color:var(--success)">${r.correct}</div><div class="stat-lbl">答對</div></div>
+          <div class="stat"><div class="stat-num" style="color:var(--danger)">${r.wrong}</div><div class="stat-lbl">答錯</div></div>
+          <div class="stat"><div class="stat-num" style="color:var(--warn)">${r.blank}</div><div class="stat-lbl">未作答</div></div>
+          <div class="stat"><div class="stat-num">${r.correct}/${r.total}</div><div class="stat-lbl">得分</div></div>
+        </div>
+      </div>
+    </div>
+
+    ${cats.length > 1 ? `<div class="card card-pad" style="margin-bottom:1rem">
+      <div class="card-title" style="margin-bottom:.6rem">分科表現</div>
+      ${cats.map((c) => {
+        const v = r.byCat[c], p = Math.round(v.c / v.t * 100);
+        const col = p >= 80 ? "var(--success)" : p >= 60 ? "var(--warn)" : "var(--danger)";
+        return `<div class="cat-row">
+          <span class="cat-name" title="${esc(c)}">${esc(c)}</span>
+          <span class="cat-bar"><span class="bar"><i style="width:${p}%; background:${col}"></i></span></span>
+          <span class="cat-val" style="color:${col}">${p}% <span class="tiny muted">(${v.c}/${v.t})</span></span>
+        </div>`;
+      }).join("")}
+    </div>` : ""}
+
+    <div class="card card-pad no-print" style="margin-bottom:1rem">
+      <div class="btn-row">
+        <button class="btn btn-primary" data-act="retry-same">🔁 重測同一份</button>
+        <button class="btn" data-act="goto-wrong" ${state.wrong.length ? "" : "disabled"}>📕 前往錯題本 (${state.wrong.length})</button>
+        <button class="btn" data-act="export-result">⬇️ 匯出結果</button>
+        <button class="btn" data-act="print">🖨️ 列印 / 存 PDF</button>
+        <button class="btn" data-act="nav" data-view="home">🏠 回首頁</button>
+      </div>
+    </div>
+
+    <div class="sec-title" style="display:flex; align-items:center; gap:.6rem; flex-wrap:wrap">
+      <span>逐題檢討</span>
+      <div class="pill-group no-print" style="margin-left:auto; text-transform:none; letter-spacing:0">
+        <button class="pill ${f === "all" ? "on" : ""}" data-act="rfilter" data-f="all">全部 ${r.total}</button>
+        <button class="pill ${f === "wrong" ? "on" : ""}" data-act="rfilter" data-f="wrong">只看錯題 ${r.wrong + r.blank}</button>
+        <button class="pill ${f === "blank" ? "on" : ""}" data-act="rfilter" data-f="blank">未作答 ${r.blank}</button>
+      </div>
+      <div class="btn-row no-print">
+        <button class="btn btn-sm" data-act="expand-all">全部展開</button>
+        <button class="btn btn-sm" data-act="collapse-all">全部收合</button>
+      </div>
+    </div>
+    <div id="reviewList">${cards || `<div class="empty">此分類沒有題目 🎉</div>`}</div>
+  </div>`;
+}
+
+function afterResultRender() { stopTimer(); }
+
+/* ------------------------- 內建範例題庫 -------------------------
+   與 data/ 目錄下的 JSON 檔案內容相同，內嵌於此以確保單檔離線可用。
+--------------------------------------------------------------------------- */
+const SAMPLE_IM = [
+  {
+    "id": "IM-CV-001",
+    "category": "心臟內科 (Cardiology)",
+    "difficulty": "中",
+    "tags": [
+      "ACS",
+      "STEMI",
+      "Reperfusion"
+    ],
+    "stem": "一名 62 歲男性，抽菸史 40 包年，於休息時突發前胸壓迫感 50 分鐘，冒冷汗。到院 12 導程心電圖 (12-lead EKG) 顯示 V2-V5 ST 節段上升 3 mm，血壓 128/76 mmHg。本院具備 24 小時心導管室，估計 door-to-balloon 時間 60 分鐘。下列處置何者最適當？",
+    "options": [
+      "A. 立即安排緊急冠狀動脈介入治療 (Primary PCI)，並給予 aspirin 與 P2Y12 抑制劑",
+      "B. 先等待第二套心肌酵素 (cardiac troponin) 報告確認後再決定是否再灌流",
+      "C. 給予靜脈血栓溶解劑 (fibrinolytic therapy) 取代導管治療",
+      "D. 先安排心臟超音波 (echocardiography) 確認區域性室壁運動異常後再處置"
+    ],
+    "answer": "A",
+    "core_explanation": "典型缺血性胸痛合併連續兩個以上前胸導程 ST 節段上升，即符合 ST 上升型心肌梗塞 (STEMI) 的診斷，屬於「時間就是心肌 (time is muscle)」的急症。指引建議在能於 90 分鐘內完成的院所，優先執行緊急經皮冠狀動脈介入 (Primary PCI)，同時給予雙重抗血小板治療 (DAPT) 與抗凝血劑。診斷依據為臨床表現加心電圖，不需等待心肌酵素或影像檢查。",
+    "option_breakdown": {
+      "A": "正確。符合 STEMI 再灌流指引：具備導管室且 door-to-balloon 可 ≤ 90 分鐘時，Primary PCI 為首選，並應立即給予 aspirin 加 P2Y12 抑制劑。",
+      "B": "錯誤。STEMI 為心電圖與臨床即可確立的診斷，troponin 上升有 3-4 小時延遲，等待報告會延誤再灌流、增加死亡率。修正：若題幹改為「心電圖無 ST 上升、僅為 T 波變化的疑似非 ST 上升型急性冠心症 (NSTE-ACS)」，此時依序追蹤高敏感性 troponin 以完成 rule-in/rule-out 流程才會是正確作法。",
+      "C": "錯誤。血栓溶解劑僅在無法及時轉送導管室（預期 door-to-balloon > 120 分鐘）時才使用，且再通率與預後劣於 Primary PCI。修正：若題幹改為「所在為偏遠地區醫院，最近導管室需轉送 3 小時」，且無禁忌症，則給予血栓溶解劑並安排轉院為正確處置。",
+      "D": "錯誤。心臟超音波對 STEMI 非必要且會延誤時間。修正：若題幹改為「病人心電圖不具診斷性、血壓 78/50 mmHg 且需鑑別主動脈剝離、肺栓塞或心包填塞」，床邊超音波才是關鍵的第一步檢查。"
+    }
+  },
+  {
+    "id": "IM-CV-002",
+    "category": "心臟內科 (Cardiology)",
+    "difficulty": "中",
+    "tags": [
+      "Atrial fibrillation",
+      "Stroke prevention"
+    ],
+    "stem": "一名 74 歲女性，健檢時心電圖發現心房顫動 (atrial fibrillation)，心室率 78 次/分，無症狀。病史有高血壓與第二型糖尿病，無中風病史，腎功能 eGFR 68 mL/min/1.73m²。下列處置何者最適當？",
+    "options": [
+      "A. 給予 aspirin 100 mg/day 作為中風預防",
+      "B. 給予直接口服抗凝血劑 (DOAC/NOAC) 作為中風預防",
+      "C. 因無症狀且心室率控制良好，不需任何抗栓塞治療",
+      "D. 安排緊急電擊整流 (electrical cardioversion) 恢復竇性心律"
+    ],
+    "answer": "B",
+    "core_explanation": "此病人 CHA₂DS₂-VASc 分數為 4 分（年齡 ≥ 75 給 2 分、高血壓 1 分、糖尿病 1 分、女性於現行指引不再單獨計分）。女性 ≥ 2 分（男性 ≥ 2 分）即建議長期口服抗凝血劑；在非瓣膜性心房顫動且腎功能可接受時，DOAC 的療效不劣於 warfarin 且顱內出血風險較低，為第一線選擇。",
+    "option_breakdown": {
+      "A": "錯誤。Aspirin 對心房顫動之心因性栓塞預防效果不佳，出血風險卻不低，現行指引已不建議以抗血小板藥取代抗凝血劑。修正：若題幹改為「病人為單純冠狀動脈疾病次級預防、無心房顫動」，aspirin 才是合理選擇。",
+      "B": "正確。CHA₂DS₂-VASc ≥ 2 分之非瓣膜性心房顫動，且無機械瓣膜或中重度二尖瓣狹窄，DOAC 為首選抗凝血治療。",
+      "C": "錯誤。中風風險取決於危險因子分數而非症狀有無，無症狀心房顫動同樣具高栓塞風險。修正：若題幹改為「45 歲男性、無任何共病、CHA₂DS₂-VASc 0 分之孤立性心房顫動」，則可不給抗凝血劑。",
+      "D": "錯誤。血行動力學穩定、且心律不整發作時間不明者，未經 3 週抗凝或經食道超音波排除左心耳血栓前貿然整流，會增加栓塞性中風。修正：若題幹改為「病人血壓 70/40 mmHg、意識改變之不穩定快速心房顫動」，則緊急同步電擊整流為正確處置。"
+    }
+  },
+  {
+    "id": "IM-CV-003",
+    "category": "心臟內科 (Cardiology)",
+    "difficulty": "中",
+    "tags": [
+      "Heart failure",
+      "GDMT"
+    ],
+    "stem": "一名 58 歲男性，缺血性心肌病變，左心室射出分率 (LVEF) 28%，NYHA Function Class II。目前已使用最大耐受劑量的 ACE 抑制劑、乙型阻斷劑 (beta-blocker) 與 spironolactone，血壓 118/70 mmHg、eGFR 62 mL/min/1.73m²、血鉀 4.2 mEq/L，仍偶有活動時喘。下列何者為最適合再加入的藥物？",
+    "options": [
+      "A. 加入 SGLT2 抑制劑 (dapagliflozin 或 empagliflozin)",
+      "B. 加入 digoxin 以改善長期存活率",
+      "C. 加入 amlodipine 以改善左心室重塑",
+      "D. 加入長期口服 furosemide 高劑量以逆轉心室重塑"
+    ],
+    "answer": "A",
+    "core_explanation": "射出分率下降型心衰竭 (HFrEF) 的四大基石藥物 (four pillars) 為：ARNI/ACEI、beta-blocker、MRA (mineralocorticoid receptor antagonist) 與 SGLT2 抑制劑。此病人已用前三類，加入 SGLT2 抑制劑可再降低心衰竭住院與心血管死亡，且不論有無糖尿病皆適用。",
+    "option_breakdown": {
+      "A": "正確。DAPA-HF 與 EMPEROR-Reduced 試驗證實 SGLT2 抑制劑可降低 HFrEF 之心血管死亡與心衰竭住院，為第四支柱。",
+      "B": "錯誤。Digoxin 可降低住院率但不改善存活率，且治療窗窄。修正：若題幹改為「已使用完整四大基石治療、仍反覆因心衰竭住院且合併心房顫動心室率偏快」，加入 digoxin 才是合理的次要選擇。",
+      "C": "錯誤。二氫吡啶類鈣離子阻斷劑對心衰竭無存活益處，非血管擴張重塑用藥。修正：若題幹改為「病人合併難以控制的高血壓或狹心症，且已用滿指引藥物」，amlodipine 才是相對安全（心衰竭中立性）的加壓控制選項。",
+      "D": "錯誤。利尿劑只緩解鬱血症狀，不改變重塑或死亡率，過量反而導致低血容與腎損傷。修正：若題幹改為「病人下肢水腫、頸靜脈怒張、體重兩週增加 4 公斤」，則調高利尿劑以緩解容積過載才是正確處置。"
+    }
+  },
+  {
+    "id": "IM-CHE-001",
+    "category": "胸腔內科 (Pulmonology)",
+    "difficulty": "中",
+    "tags": [
+      "COPD",
+      "Acute exacerbation",
+      "NIV"
+    ],
+    "stem": "一名 70 歲男性，慢性阻塞性肺病 (COPD) 病史，三天來喘鳴加劇、痰量增加且轉為黃色。到院意識清楚，呼吸 28 次/分，動脈血液氣體分析 (ABG)：pH 7.28、PaCO₂ 68 mmHg、PaO₂ 58 mmHg (room air)。下列處置何者最適當？",
+    "options": [
+      "A. 立即氣管內插管接呼吸器",
+      "B. 給予高流量 100% 純氧面罩使血氧飽和度維持 100%",
+      "C. 給予支氣管擴張劑、全身性類固醇與抗生素，並使用非侵襲性正壓通氣 (NIV)",
+      "D. 給予靜脈注射 aminophylline 為主要治療並觀察"
+    ],
+    "answer": "C",
+    "core_explanation": "COPD 急性惡化合併高碳酸血症型呼吸衰竭 (pH < 7.35 且 PaCO₂ 上升) 且意識清楚、可保護呼吸道者，非侵襲性正壓通氣 (NIV) 是第一線，能顯著降低插管率與死亡率。同時給予短效支氣管擴張劑、全身性類固醇 (約 5 天)，並在痰量／痰膿性／喘增加之 Anthonisen 準則符合時給抗生素。氧氣目標為 SpO₂ 88-92%。",
+    "option_breakdown": {
+      "A": "錯誤。病人意識清楚且可配合，應先試 NIV，貿然插管會增加呼吸器相關併發症。修正：若題幹改為「病人意識昏迷、無法保護呼吸道或 NIV 治療 1-2 小時後 pH 持續惡化」，則氣管內插管為正確處置。",
+      "B": "錯誤。COPD 病人給予過高氧氣會因 V/Q 不匹配惡化與 Haldane 效應加重二氧化碳滯留，目標應為 SpO₂ 88-92%。修正：若題幹改為「一氧化碳中毒或急性呼吸窘迫症候群之低血氧」，才需要高濃度氧氣治療。",
+      "C": "正確。符合 GOLD 指引之 COPD 急性惡化合併呼吸性酸中毒之標準處置組合。",
+      "D": "錯誤。Methylxanthine 類療效有限、治療窗窄且心律不整與噁心副作用多，僅為第二線輔助。修正：若題幹改為「已使用最大化支氣管擴張劑與 NIV 仍無改善之難治性個案」，才可考慮加上 aminophylline 並監測血中濃度。"
+    }
+  },
+  {
+    "id": "IM-CHE-002",
+    "category": "胸腔內科 (Pulmonology)",
+    "difficulty": "易",
+    "tags": [
+      "CAP",
+      "CURB-65"
+    ],
+    "stem": "一名 68 歲男性因發燒、咳嗽有痰三天就診。意識清楚，呼吸 20 次/分，血壓 130/78 mmHg，BUN 18 mg/dL，胸部 X 光 (CXR) 顯示右下肺葉浸潤。依 CURB-65 評估，下列處置何者最適當？",
+    "options": [
+      "A. CURB-65 為 1 分，可考慮門診口服抗生素治療並密切追蹤",
+      "B. CURB-65 為 3 分，應收住加護病房",
+      "C. 應先等待痰液培養結果再開始抗生素",
+      "D. 因病人年齡 > 65 歲，無論分數為何皆須插管保護呼吸道"
+    ],
+    "answer": "A",
+    "core_explanation": "CURB-65 五項：意識混亂 (Confusion)、BUN > 19 mg/dL (Urea)、呼吸速率 ≥ 30 次/分 (Respiratory rate)、收縮壓 < 90 或舒張壓 ≤ 60 mmHg (Blood pressure)、年齡 ≥ 65 歲。本例僅年齡符合，為 1 分，屬低危險群，可門診治療並口服抗生素（如 amoxicillin 或呼吸道 fluoroquinolone），但仍需追蹤。",
+    "option_breakdown": {
+      "A": "正確。CURB-65 為 0-1 分屬低危險群 (30 天死亡率 < 3%)，可考慮門診治療。",
+      "B": "錯誤。分數計算錯誤：BUN 18 mg/dL 未達 19、呼吸 20 次/分未達 30、血壓正常、意識清楚，僅年齡 1 分。修正：若題幹改為「病人意識混亂、BUN 32 mg/dL、呼吸 32 次/分」，CURB-65 才會達 4 分而需考慮加護病房照護。",
+      "C": "錯誤。社區型肺炎應在診斷後儘早（敗血症時 1 小時內）給予經驗性抗生素，培養不應延誤治療。修正：若題幹改為「先抽血液與痰液培養，再立即給予經驗性抗生素」，則為正確順序。",
+      "D": "錯誤。年齡本身不是插管指標，插管取決於呼吸衰竭與呼吸道保護能力。修正：若題幹改為「病人 SpO₂ 82% 於高流量氧氣下、意識轉為嗜睡」，才需考慮插管。"
+    }
+  },
+  {
+    "id": "IM-NEP-001",
+    "category": "腎臟內科 (Nephrology)",
+    "difficulty": "中",
+    "tags": [
+      "Hyperkalemia",
+      "Emergency"
+    ],
+    "stem": "一名 64 歲男性慢性腎臟病第 4 期，因全身無力至急診。血鉀 7.2 mEq/L，心電圖顯示高聳 T 波 (peaked T wave) 併 QRS 波增寬。下列處置何者應「最優先」執行？",
+    "options": [
+      "A. 靜脈注射 calcium gluconate",
+      "B. 給予口服陽離子交換樹脂 (potassium binder)",
+      "C. 安排緊急血液透析 (hemodialysis)",
+      "D. 靜脈注射胰島素併葡萄糖 (insulin with glucose)"
+    ],
+    "answer": "A",
+    "core_explanation": "高血鉀合併心電圖變化屬心律不整急症。處置原則為三步驟：(1) 穩定心肌細胞膜——靜脈注射鈣鹽（最優先，數分鐘內生效，但不降血鉀）；(2) 將鉀移入細胞內——胰島素併葡萄糖、β2 agonist、必要時 sodium bicarbonate；(3) 移除體內鉀——利尿劑、陽離子交換樹脂、血液透析。",
+    "option_breakdown": {
+      "A": "正確。鈣鹽可拮抗高血鉀對心肌細胞膜的去極化效應，是有心電圖變化時的第一步。",
+      "B": "錯誤。陽離子交換樹脂經腸道排鉀，起效需數小時，不適合作為急性期第一步。修正：若題幹改為「血鉀 5.8 mEq/L、心電圖正常之慢性高血鉀門診病人」，則使用口服 potassium binder 為合理選擇。",
+      "C": "錯誤。透析雖然是最終有效的移除方式，但準備與建立通路需時間，不能作為第一步。修正：若題幹改為「已完成鈣鹽與胰島素治療，但為無尿之末期腎病且血鉀持續 > 6.5 mEq/L」，則緊急血液透析為正確的下一步。",
+      "D": "錯誤。胰島素併葡萄糖有效但需 15-30 分鐘起效，且不能對抗當下的心肌不穩定。修正：若題幹改為「已先給予 calcium gluconate 後的下一步處置為何」，則胰島素併葡萄糖即為正確答案。"
+    }
+  },
+  {
+    "id": "IM-NEP-002",
+    "category": "腎臟內科 (Nephrology)",
+    "difficulty": "難",
+    "tags": [
+      "Hyponatremia",
+      "SIADH"
+    ],
+    "stem": "一名 72 歲女性，小細胞肺癌病史，因倦怠與輕微意識混亂就診。血鈉 118 mEq/L、血清滲透壓 245 mOsm/kg、尿液滲透壓 520 mOsm/kg、尿鈉 68 mEq/L。理學檢查無水腫、無姿勢性低血壓，甲狀腺與腎上腺功能正常。下列何者為最適當的診斷與處置？",
+    "options": [
+      "A. 低血容性低血鈉，應給予大量 0.9% 生理食鹽水快速補充",
+      "B. 抗利尿激素不當分泌症候群 (SIADH)，應限水並視症狀考慮高張食鹽水，且 24 小時內血鈉上升不超過 8-10 mEq/L",
+      "C. 高血容性低血鈉，應給予高劑量利尿劑並限鈉",
+      "D. 假性低血鈉 (pseudohyponatremia)，不需治療"
+    ],
+    "answer": "B",
+    "core_explanation": "體液容積正常 (euvolemic)、低血清滲透壓、尿液滲透壓 > 100 mOsm/kg 且尿鈉 > 30 mEq/L，並排除甲狀腺低下與腎上腺功能不全，符合 SIADH；小細胞肺癌是典型的異位 ADH 分泌來源。治療以限水為主，有神經學症狀時可用 3% 高張食鹽水，但矯正速度須限制在 24 小時 8-10 mEq/L 以內，以免造成滲透性脫髓鞘症候群 (osmotic demyelination syndrome)。",
+    "option_breakdown": {
+      "A": "錯誤。病人無低血容徵象且尿鈉偏高，並非低血容性；給予等張食鹽水在 SIADH 可能因尿液滲透壓高於輸液而使血鈉更低。修正：若題幹改為「病人有嘔吐腹瀉、姿勢性低血壓且尿鈉 < 20 mEq/L」，則等張食鹽水補充為正確處置。",
+      "B": "正確。符合 SIADH 診斷準則與安全矯正速率原則。",
+      "C": "錯誤。高血容性低血鈉見於心衰竭、肝硬化、腎病症候群，理學檢查會有水腫或腹水。修正：若題幹改為「病人有下肢凹陷性水腫、頸靜脈怒張與腹水」，才適用限水限鈉加利尿劑。",
+      "D": "錯誤。假性低血鈉的血清滲透壓為正常，而本例已明確偏低 (245 mOsm/kg)。修正：若題幹改為「三酸甘油酯 3500 mg/dL 或多發性骨髓瘤高球蛋白血症、且血清滲透壓正常」，才屬假性低血鈉。"
+    }
+  },
+  {
+    "id": "IM-NEP-003",
+    "category": "腎臟內科 (Nephrology)",
+    "difficulty": "中",
+    "tags": [
+      "AKI",
+      "FENa"
+    ],
+    "stem": "一名 55 歲男性因嚴重腹瀉三天後尿量減少。血清肌酸酐由 0.9 上升至 2.6 mg/dL，BUN/Cr 比值 26，尿鈉 12 mEq/L，尿液鈉排泄分率 (FENa) 0.6%，尿沉渣可見透明圓柱 (hyaline cast)。下列何者最可能？",
+    "options": [
+      "A. 腎前性急性腎損傷 (prerenal AKI)",
+      "B. 急性腎小管壞死 (acute tubular necrosis, ATN)",
+      "C. 急性間質性腎炎 (acute interstitial nephritis)",
+      "D. 腎後性阻塞性尿路病變 (postrenal obstructive uropathy)"
+    ],
+    "answer": "A",
+    "core_explanation": "腹瀉導致有效循環容積不足，腎臟保鈉保水機轉活化，因此表現為 BUN/Cr > 20、尿鈉 < 20 mEq/L、FENa < 1%、尿液濃縮且尿沉渣僅見透明圓柱，為典型腎前性 AKI。此類在及時補液後腎功能可回復。",
+    "option_breakdown": {
+      "A": "正確。所有指標（FENa < 1%、尿鈉低、BUN/Cr 比高、無細胞性圓柱）均指向腎前性。",
+      "B": "錯誤。ATN 因腎小管受損無法保鈉，典型為 FENa > 2%、尿鈉 > 40 mEq/L，尿沉渣可見泥棕色顆粒圓柱 (muddy brown granular cast)。修正：若題幹改為「FENa 3.2%、尿鈉 55 mEq/L、尿沉渣見泥棕色顆粒圓柱」，答案即為 ATN。",
+      "C": "錯誤。急性間質性腎炎多與藥物（如 NSAID、PPI、抗生素）相關，常見發燒、皮疹、嗜酸性白血球增多與白血球圓柱。修正：若題幹改為「兩週前開始使用抗生素、出現皮疹與周邊血嗜酸性白血球增多、尿液可見白血球圓柱」，則為急性間質性腎炎。",
+      "D": "錯誤。腎後性需有尿路阻塞證據，如無尿、膀胱脹或超音波顯示雙側腎水腫。修正：若題幹改為「攝護腺肥大病史、超音波顯示雙側腎盂積水且導尿後排出 900 mL 尿液」，則為腎後性阻塞。"
+    }
+  },
+  {
+    "id": "IM-GI-001",
+    "category": "肝膽腸胃科 (Gastroenterology)",
+    "difficulty": "中",
+    "tags": [
+      "Variceal bleeding",
+      "Cirrhosis"
+    ],
+    "stem": "一名 56 歲男性，B 型肝炎肝硬化病史，因大量吐鮮血至急診。血壓 88/56 mmHg、心跳 118 次/分、血色素 7.2 g/dL。下列初始處置組合何者最適當？",
+    "options": [
+      "A. 立即輸血將血色素維持在 12 g/dL 以上，並先安排電腦斷層",
+      "B. 建立輸液通道、限制性輸血 (目標 Hb 約 7-8 g/dL)、給予血管收縮劑與預防性抗生素，並於 12 小時內安排上消化道內視鏡",
+      "C. 立即放置 Sengstaken-Blakemore 管作為第一線止血方式",
+      "D. 僅給予質子幫浦抑制劑 (PPI) 並觀察 24 小時"
+    ],
+    "answer": "B",
+    "core_explanation": "肝硬化併食道靜脈瘤出血的標準處置為：積極復甦但採限制性輸血策略（過度輸血會升高門脈壓、增加再出血）、給予血管收縮劑 (terlipressin / somatostatin / octreotide)、給予預防性抗生素（如 ceftriaxone，可降低感染與死亡率），並在 12 小時內施行治療性內視鏡結紮。",
+    "option_breakdown": {
+      "A": "錯誤。過度輸血會使門脈壓上升而增加再出血與死亡率；電腦斷層無助於急性靜脈瘤止血且延誤內視鏡。修正：若題幹改為「懷疑主動脈腸道瘻管 (aortoenteric fistula) 或腸繫膜缺血」，則電腦斷層血管攝影才是正確的優先檢查。",
+      "B": "正確。符合 Baveno 共識與各大指引之急性靜脈瘤出血處置原則。",
+      "C": "錯誤。氣球填塞僅作為藥物與內視鏡失敗後的暫時性搶救手段（可放置 ≤ 24 小時），併發症高。修正：若題幹改為「已接受內視鏡結紮與藥物治療仍持續大量出血，等待 TIPS 期間」，才適合以氣球填塞作為橋接。",
+      "D": "錯誤。PPI 對靜脈瘤出血療效有限，僅在無法排除消化性潰瘍時輔助使用。修正：若題幹改為「內視鏡確診為十二指腸潰瘍併可見血管殘端 (visible vessel)」，則高劑量 PPI 併內視鏡止血為正確處置。"
+    }
+  },
+  {
+    "id": "IM-GI-002",
+    "category": "肝膽腸胃科 (Gastroenterology)",
+    "difficulty": "易",
+    "tags": [
+      "Acute pancreatitis",
+      "Fluid resuscitation"
+    ],
+    "stem": "一名 45 歲男性，酗酒後上腹劇痛合併嘔吐，血清脂肪酶 (lipase) 為正常上限 5 倍，電腦斷層顯示胰臟腫大合併週邊脂肪浸潤。下列早期處置何者最重要？",
+    "options": [
+      "A. 早期給予預防性廣效抗生素以避免感染性壞死",
+      "B. 早期積極靜脈輸液（首選乳酸林格氏液 Lactated Ringer's）並依反應調整、控制疼痛與早期腸道營養",
+      "C. 緊急外科手術切除壞死胰臟組織",
+      "D. 立即安排內視鏡逆行性膽胰管攝影 (ERCP)"
+    ],
+    "answer": "B",
+    "core_explanation": "急性胰臟炎早期（前 24-48 小時）的核心處置是適度積極的靜脈輸液（乳酸林格氏液優於生理食鹽水，可降低全身性發炎反應）、有效止痛，以及能耐受時儘早給予腸道營養；不需常規禁食至酵素正常，也不需預防性抗生素。",
+    "option_breakdown": {
+      "A": "錯誤。預防性抗生素未能降低死亡率，反而增加抗藥性與黴菌感染。修正：若題幹改為「病人於發病第 10 天再度發燒、CT 顯示壞死區內出現氣體且血液培養陽性」，此時給予抗生素治療感染性壞死才正確。",
+      "B": "正確。符合急性胰臟炎現行指引之早期支持性治療原則。",
+      "C": "錯誤。壞死性胰臟炎主張延遲介入（通常 4 週後、且採階梯式微創引流），早期手術死亡率極高。修正：若題幹改為「發病 4 週後形成包裹性壞死並有感染證據」，則採內視鏡或經皮階梯式引流才是正確策略。",
+      "D": "錯誤。ERCP 僅適用於合併膽道結石阻塞併發膽管炎者。修正：若題幹改為「病人黃疸、發燒、右上腹痛之 Charcot triad，超音波顯示總膽管結石併膽管擴張」，則應於 24 小時內施行 ERCP。"
+    }
+  },
+  {
+    "id": "IM-GI-003",
+    "category": "肝膽腸胃科 (Gastroenterology)",
+    "difficulty": "難",
+    "tags": [
+      "HBV reactivation",
+      "Rituximab"
+    ],
+    "stem": "一名 60 歲女性即將接受含 rituximab 之化學治療。檢驗顯示 HBsAg 陰性、anti-HBc 陽性、anti-HBs 陽性、HBV DNA 測不到。下列處置何者最適當？",
+    "options": [
+      "A. 不需任何處置，僅於治療結束後檢查肝功能",
+      "B. 於化療前開始並持續預防性抗病毒治療（如 entecavir 或 tenofovir），治療結束後至少再持續 12-18 個月",
+      "C. 立即施打 B 型肝炎疫苗即可，不需抗病毒藥",
+      "D. 待 ALT 上升且 HBsAg 轉為陽性時再開始抗病毒治療"
+    ],
+    "answer": "B",
+    "core_explanation": "anti-HBc 陽性代表既往感染，肝細胞內仍存在 cccDNA。Rituximab 為 B 細胞清除劑，屬 HBV 再活化的「高風險」藥物（即使 HBsAg 陰性、anti-HBs 陽性，再活化風險仍 > 10%），因此建議治療前即開始預防性抗病毒藥物，並於免疫抑制治療結束後持續至少 12-18 個月。",
+    "option_breakdown": {
+      "A": "錯誤。Rituximab 引起的 HBV 再活化可導致猛爆性肝炎與高死亡率，僅追蹤肝功能無法及時避免。修正：若題幹改為「anti-HBc 陰性、anti-HBs 陽性（僅疫苗接種）之病人」，則確實不需預防性抗病毒治療。",
+      "B": "正確。符合 AASLD/EASL 對高風險免疫抑制治療之 HBV 預防建議。",
+      "C": "錯誤。疫苗在免疫抑制狀態下反應差，且無法防止潛伏病毒再活化。修正：若題幹改為「三項標記全陰性且免疫功能正常之未感染者」，則接種疫苗為正確的預防措施。",
+      "D": "錯誤。等到 ALT 上升時往往已發生嚴重肝炎，屬於「先發制人 (pre-emptive)」策略失敗的情境。修正：若題幹改為「接受低風險治療（如單純的非類固醇化療）之 anti-HBc 陽性者，可採每 1-3 個月監測 HBV DNA、上升時立即投藥」，此監測策略才可接受。"
+    }
+  },
+  {
+    "id": "IM-END-001",
+    "category": "新陳代謝科 (Endocrinology)",
+    "difficulty": "中",
+    "tags": [
+      "DKA",
+      "Potassium"
+    ],
+    "stem": "一名 24 歲第一型糖尿病女性因噁心嘔吐與腹痛就診。血糖 520 mg/dL、動脈 pH 7.15、血清 bicarbonate 10 mEq/L、血酮陽性、血鉀 3.1 mEq/L。下列處置何者最適當？",
+    "options": [
+      "A. 立即給予靜脈胰島素輸注，同時開始補鉀",
+      "B. 先補充生理食鹽水與鉀離子，待血鉀 ≥ 3.3 mEq/L 後再開始胰島素輸注",
+      "C. 立即給予 sodium bicarbonate 矯正酸中毒",
+      "D. 僅給予皮下速效胰島素並門診追蹤"
+    ],
+    "answer": "B",
+    "core_explanation": "糖尿病酮酸中毒 (DKA) 時全身總鉀量其實是缺乏的，只是酸中毒與胰島素缺乏使鉀移出細胞外。若在血鉀 < 3.3 mEq/L 時就給胰島素，會使鉀迅速移入細胞內而造成致命性低血鉀與心律不整。因此處置順序為：先積極輸液並補鉀，待血鉀 ≥ 3.3 mEq/L 才開始胰島素輸注。",
+    "option_breakdown": {
+      "A": "錯誤。血鉀已低於 3.3 mEq/L，先給胰島素會導致嚴重低血鉀。修正：若題幹改為「血鉀為 4.5 mEq/L」，則輸液同時開始胰島素輸注並於補液中加入鉀離子即為正確處置。",
+      "B": "正確。符合 DKA 處置中「K < 3.3 mEq/L 時暫緩胰島素、先補鉀」的安全原則。",
+      "C": "錯誤。除非 pH < 6.9，否則 bicarbonate 無益且可能造成腦水腫、加重低血鉀與細胞內酸化。修正：若題幹改為「動脈 pH 6.85 併血行動力學不穩」，才考慮謹慎給予 bicarbonate。",
+      "D": "錯誤。已達 DKA 標準（高血糖、陰離子間隙代謝性酸中毒、酮體陽性），需住院靜脈治療。修正：若題幹改為「血糖 260 mg/dL、pH 7.38、無酮體、僅為高血糖但無酸中毒之穩定病人」，則調整皮下胰島素並門診追蹤才恰當。"
+    }
+  },
+  {
+    "id": "IM-END-002",
+    "category": "新陳代謝科 (Endocrinology)",
+    "difficulty": "難",
+    "tags": [
+      "Thyroid storm"
+    ],
+    "stem": "一名 38 歲女性，Graves' disease 病史但自行停藥，近日肺炎後出現高燒 39.8°C、心跳 156 次/分之心房顫動、躁動不安與嘔吐腹瀉。TSH < 0.01 μIU/mL、free T4 顯著上升。下列用藥順序何者最適當？",
+    "options": [
+      "A. 先給碘化物 (iodide)，1 小時後再給 propylthiouracil (PTU)",
+      "B. 先給 PTU，至少 1 小時後再給碘化物，並同時使用 beta-blocker 與類固醇",
+      "C. 僅給 beta-blocker 控制心跳即可",
+      "D. 立即安排甲狀腺全切除手術作為第一線治療"
+    ],
+    "answer": "B",
+    "core_explanation": "甲狀腺風暴 (thyroid storm) 的用藥原則：(1) 硫醯胺類藥物 (PTU 優於 methimazole，因可額外抑制周邊 T4→T3 轉換) 阻斷新荷爾蒙合成；(2) 至少 1 小時後才給碘化物（Wolff-Chaikoff effect 抑制釋放），否則碘會成為合成受質而惡化病情；(3) beta-blocker (propranolol) 控制交感症狀；(4) 類固醇抑制周邊轉換並處理相對腎上腺不足；(5) 同時治療誘發因子（本例為肺炎）。",
+    "option_breakdown": {
+      "A": "錯誤。順序顛倒；先給碘會提供甲狀腺合成荷爾蒙的原料，可能使甲狀腺毒症惡化。修正：若題幹改為「已先給予 PTU 一小時後之下一步」，則給予碘化物即為正確。",
+      "B": "正確。符合甲狀腺風暴之標準用藥順序與多重機轉組合。",
+      "C": "錯誤。beta-blocker 只控制症狀，未阻斷荷爾蒙合成與釋放，單用死亡率高。修正：若題幹改為「僅為輕度無症狀甲狀腺功能亢進、等待確診檢查期間之症狀緩解」，才可先單用 beta-blocker。",
+      "D": "錯誤。急性風暴期手術風險極高，需先以藥物控制。修正：若題幹改為「甲狀腺功能已由藥物控制穩定、但為巨大甲狀腺腫壓迫氣管或藥物過敏」，則手術為適當的根治選項。"
+    }
+  },
+  {
+    "id": "IM-ID-001",
+    "category": "感染科 (Infectious Disease)",
+    "difficulty": "中",
+    "tags": [
+      "Sepsis",
+      "Bundle"
+    ],
+    "stem": "一名 78 歲男性因發燒與意識改變送急診。血壓 82/48 mmHg、心跳 122 次/分、體溫 39.2°C、血中乳酸 4.6 mmol/L，疑似泌尿道感染引起之敗血性休克。下列處置何者最符合敗血症處置準則 (sepsis bundle)？",
+    "options": [
+      "A. 先安排腹部電腦斷層確認感染源後再給抗生素",
+      "B. 抽血液培養後於 1 小時內給予經驗性廣效抗生素，並於 3 小時內給予 30 mL/kg 晶體輸液復甦",
+      "C. 立即使用升壓劑而不給輸液，以避免肺水腫",
+      "D. 先給予類固醇作為第一線治療"
+    ],
+    "answer": "B",
+    "core_explanation": "敗血性休克為時間敏感急症。標準組合為：測乳酸、抽取血液培養（不可因此延誤用藥）、於辨識後 1 小時內給予經驗性廣效抗生素、對低血壓或乳酸 ≥ 4 mmol/L 者於 3 小時內給予 30 mL/kg 晶體輸液，若輸液後仍低血壓則使用升壓劑（首選 norepinephrine）維持 MAP ≥ 65 mmHg，並儘早控制感染源。",
+    "option_breakdown": {
+      "A": "錯誤。影像檢查不可延誤抗生素給予，每延遲 1 小時死亡率上升。修正：若題幹改為「已完成培養、抗生素與輸液復甦後，欲評估是否有需引流的膿瘍」，則安排電腦斷層即為正確的下一步。",
+      "B": "正確。符合 Surviving Sepsis Campaign 之 1 小時／3 小時處置組合。",
+      "C": "錯誤。敗血性休克多為分布性休克合併相對血容不足，應先足量輸液再視情況加升壓劑。修正：若題幹改為「已給予足量輸液（30 mL/kg）後 MAP 仍 < 65 mmHg」，則使用 norepinephrine 為正確處置。",
+      "D": "錯誤。類固醇 (hydrocortisone) 僅在輸液與升壓劑仍無法維持血壓的難治性休克才建議加用。修正：若題幹改為「已使用足量輸液與中高劑量 norepinephrine 仍持續低血壓」，則加用 hydrocortisone 才恰當。"
+    }
+  },
+  {
+    "id": "IM-ID-002",
+    "category": "感染科 (Infectious Disease)",
+    "difficulty": "中",
+    "tags": [
+      "PCP",
+      "HIV"
+    ],
+    "stem": "一名 34 歲男性，新診斷 HIV 感染，CD4 count 85 cells/μL。因漸進性乾咳與運動時喘就診，胸部 X 光顯示兩側瀰漫性間質浸潤，室內空氣下動脈血氧分壓 PaO₂ 58 mmHg。下列治療何者最適當？",
+    "options": [
+      "A. 給予高劑量 trimethoprim-sulfamethoxazole (TMP-SMX)，並「加上」全身性類固醇",
+      "B. 僅給予 TMP-SMX，類固醇為禁忌",
+      "C. 給予抗結核四合一藥物治療",
+      "D. 立即開始抗反轉錄病毒藥物 (ART) 而暫不治療肺部感染"
+    ],
+    "answer": "A",
+    "core_explanation": "CD4 < 200 cells/μL 併瀰漫性間質浸潤與低血氧，最可能為肺囊蟲肺炎 (Pneumocystis jirovecii pneumonia, PCP)。第一線治療為 TMP-SMX；當室內空氣下 PaO₂ < 70 mmHg 或肺泡-動脈氧分壓差 (A-a gradient) > 35 mmHg 時，應「加上」輔助性類固醇，可降低呼吸衰竭與死亡率。",
+    "option_breakdown": {
+      "A": "正確。符合 PaO₂ < 70 mmHg 之輔助類固醇適應症。",
+      "B": "錯誤。在中重度 PCP，類固醇非但不是禁忌，反而是可降低死亡率的必要輔助。修正：若題幹改為「PaO₂ 88 mmHg、A-a gradient 20 mmHg 之輕度 PCP」，則單用 TMP-SMX 而不加類固醇才是正確作法。",
+      "C": "錯誤。影像為瀰漫性間質性浸潤而非上肺葉空洞或粟粒狀病灶，且臨床病程與 PCP 相符。修正：若題幹改為「慢性咳嗽帶血、體重減輕、CXR 顯示右上肺葉空洞病灶且痰抗酸性染色陽性」，則抗結核治療為正確。",
+      "D": "錯誤。應先治療伺機性感染，ART 通常於 2 週內開始（結核性腦膜炎等特定情況需延後），以免免疫重建發炎症候群 (IRIS)。修正：若題幹改為「已開始 PCP 治療 2 週且臨床改善後之下一步」，則啟動 ART 為正確處置。"
+    }
+  },
+  {
+    "id": "IM-HEM-001",
+    "category": "血液腫瘤科 (Hematology-Oncology)",
+    "difficulty": "難",
+    "tags": [
+      "TTP",
+      "TMA"
+    ],
+    "stem": "一名 41 歲女性因意識混亂、發燒與皮膚紫斑就診。血紅素 7.8 g/dL、血小板 12,000/μL、LDH 顯著上升、血清肌酸酐 1.6 mg/dL、周邊血液抹片可見破碎紅血球 (schistocytes)、凝血功能 PT/aPTT 正常，直接 Coombs test 陰性。下列處置何者最適當？",
+    "options": [
+      "A. 立即輸注血小板以矯正嚴重血小板低下",
+      "B. 立即安排血漿置換術 (therapeutic plasma exchange)",
+      "C. 給予新鮮冷凍血漿與肝素治療瀰漫性血管內凝血 (DIC)",
+      "D. 開始高劑量類固醇並等待骨髓穿刺結果再處置"
+    ],
+    "answer": "B",
+    "core_explanation": "微血管病性溶血性貧血 (schistocytes、LDH 上升、Coombs 陰性) 合併嚴重血小板低下、神經學症狀、腎功能異常與發燒，且凝血功能正常，符合血栓性血小板低下性紫斑症 (TTP，ADAMTS13 活性嚴重不足)。血漿置換術是可將死亡率由 > 90% 降至約 10-20% 的救命治療，須在懷疑當下即刻啟動，不可等待 ADAMTS13 報告。",
+    "option_breakdown": {
+      "A": "錯誤。除非有致命性出血，TTP 輸血小板等於「火上加油」，可能加重微血管血栓與器官缺血。修正：若題幹改為「免疫性血小板低下性紫斑症 (ITP) 併顱內出血」，則輸注血小板加免疫球蛋白才是正確處置。",
+      "B": "正確。臨床懷疑 TTP 即應立即血漿置換，並可合併類固醇、必要時加上 caplacizumab 與 rituximab。",
+      "C": "錯誤。DIC 的 PT/aPTT 會延長、fibrinogen 下降、D-dimer 大幅上升，本例凝血功能正常不支持。修正：若題幹改為「PT 與 aPTT 延長、fibrinogen 90 mg/dL、D-dimer 顯著上升且有明顯感染源」，則按 DIC 處理（治療原發病因並補充凝血因子）。",
+      "D": "錯誤。類固醇為輔助治療而非主軸，等待骨髓報告會延誤救命的血漿置換。修正：若題幹改為「全血球減少、無破碎紅血球、疑似急性白血病」，才需以骨髓穿刺確診後再治療。"
+    }
+  },
+  {
+    "id": "IM-HEM-002",
+    "category": "血液腫瘤科 (Hematology-Oncology)",
+    "difficulty": "中",
+    "tags": [
+      "Tumor lysis syndrome"
+    ],
+    "stem": "一名 28 歲男性，新診斷 Burkitt lymphoma，開始化學治療 24 小時後出現尿量減少。檢驗：血鉀 6.4 mEq/L、磷 8.2 mg/dL、鈣 6.8 mg/dL、尿酸 14 mg/dL、肌酸酐 3.1 mg/dL。下列處置何者最適當？",
+    "options": [
+      "A. 積極靜脈輸液併給予 rasburicase 降尿酸，密切監測電解質並準備透析",
+      "B. 給予 allopurinol 作為此時降低已生成尿酸的首選藥物",
+      "C. 給予大量鈣片矯正低血鈣",
+      "D. 使用碳酸氫鈉大量鹼化尿液作為現行首選策略"
+    ],
+    "answer": "A",
+    "core_explanation": "腫瘤溶解症候群 (tumor lysis syndrome) 表現為高血鉀、高血磷、高尿酸與低血鈣併急性腎損傷，好發於高腫瘤負荷且高度化療敏感的惡性疾病（如 Burkitt lymphoma、急性白血病）。已發生且腎功能惡化者，處置為積極輸液維持尿量、以 rasburicase（尿酸氧化酶）快速分解既存尿酸，並密切監測電解質，必要時透析。",
+    "option_breakdown": {
+      "A": "正確。Rasburicase 直接將尿酸代謝為水溶性 allantoin，適用於已發生的高尿酸血症併腎損傷。",
+      "B": "錯誤。Allopurinol 抑制黃嘌呤氧化酶只能防止「新的」尿酸生成，對已堆積的尿酸無效，起效慢。修正：若題幹改為「中度風險病人化療前之預防用藥」，則 allopurinol 加充足水分為正確選擇。",
+      "C": "錯誤。腫瘤溶解症候群的低血鈣為高血磷所致，補鈣可能造成磷酸鈣沉積而加重腎損傷；除非有症狀（抽搐、心律不整）才謹慎補充。修正：若題幹改為「病人出現手足抽搐 (tetany) 或 QT 延長併心律不整」，才需靜脈補鈣。",
+      "D": "錯誤。鹼化尿液雖可增加尿酸溶解度，但同時促進磷酸鈣在腎小管沉澱，現行指引已不再常規建議。修正：若題幹改為「橫紋肌溶解症併肌紅蛋白尿之腎損傷預防」，鹼化尿液才可能被考慮（且仍具爭議）。"
+    }
+  },
+  {
+    "id": "IM-RHE-001",
+    "category": "風濕免疫科 (Rheumatology)",
+    "difficulty": "中",
+    "tags": [
+      "Giant cell arteritis"
+    ],
+    "stem": "一名 72 歲女性，新發生的右側顳部頭痛兩週，合併咀嚼時下顎痠痛與短暫性單眼視力模糊。ESR 92 mm/hr、CRP 顯著上升。下列處置何者最適當？",
+    "options": [
+      "A. 立即開始高劑量類固醇治療，再安排顳動脈切片 (temporal artery biopsy)",
+      "B. 先安排顳動脈切片，待病理確診後再開始類固醇",
+      "C. 給予 NSAID 觀察兩週後再評估",
+      "D. 診斷為偏頭痛，給予 triptan 類藥物"
+    ],
+    "answer": "A",
+    "core_explanation": "高齡、新發頭痛、下顎跛行 (jaw claudication)、視覺症狀與發炎指標大幅上升，高度懷疑巨細胞動脈炎 (giant cell arteritis)。因可能在數小時至數日內造成不可逆失明，臨床懷疑即應立即給予高劑量類固醇（有視覺症狀者建議靜脈脈衝治療），切片可在開始類固醇後 1-2 週內進行仍具診斷價值。",
+    "option_breakdown": {
+      "A": "正確。「先治療、後確診」是預防永久失明的關鍵原則。",
+      "B": "錯誤。等待切片可能延誤數日而導致不可逆的前部缺血性視神經病變。修正：若題幹改為「病人無視覺症狀且切片可於數小時內安排完成」，則同日切片仍不應延遲用藥，僅檢查順序可彈性調整。",
+      "C": "錯誤。NSAID 無法阻止血管炎造成的缺血性失明。修正：若題幹改為「單純風濕性多肌痛症 (polymyalgia rheumatica) 無頭痛與視覺症狀」，也仍應以低劑量類固醇治療而非 NSAID。",
+      "D": "錯誤。50 歲以後新發生的頭痛屬於警訊 (red flag)，且偏頭痛不會有下顎跛行與 ESR 大幅上升。修正：若題幹改為「25 歲女性反覆單側搏動性頭痛併畏光、噁心，發炎指標正常」，則偏頭痛與 triptan 治療才成立。"
+    }
+  }
+];
+
+const SAMPLE_IMG = [
+  {
+    "id": "IMG-CV-001",
+    "category": "心臟內科 (Cardiology)",
+    "difficulty": "中",
+    "tags": [
+      "EKG",
+      "STEMI"
+    ],
+    "stem": "一名 66 歲男性因持續性胸骨後壓迫感 40 分鐘至急診，冒冷汗。到院心電圖 (EKG) 節錄如圖（前胸導程 V2-V4 示意圖）。下列判讀與處置何者最適當？",
+    "image_url": "builtin:ekg-stemi",
+    "image_caption": "示意圖：前胸導程可見凸面向上之 ST 節段上升 (ST-segment elevation)。",
+    "options": [
+      "A. ST 節段上升型心肌梗塞 (STEMI)，應立即啟動再灌流治療",
+      "B. 急性心包膜炎 (acute pericarditis)，應給予 NSAID 與 colchicine",
+      "C. 早期再極化 (early repolarization) 之正常變異，門診追蹤即可",
+      "D. 高血鉀症 (hyperkalemia)，應立即給予 calcium gluconate"
+    ],
+    "answer": "A",
+    "core_explanation": "圖示為局限於前胸導程、凸面向上 (convex / tombstone) 的 ST 節段上升，合併典型缺血性胸痛，符合前壁 STEMI。應立即啟動再灌流治療（優先 Primary PCI），並給予雙重抗血小板與抗凝血治療。",
+    "option_breakdown": {
+      "A": "正確。區域性（符合冠狀動脈血流分布）的凸面向上 ST 上升加上典型胸痛，即為 STEMI。",
+      "B": "錯誤。心包膜炎的 ST 上升為「廣泛性、凹面向上 (concave)」並常合併 PR 節段下降，且疼痛隨姿勢改變。修正：若題幹改為「胸痛前傾可緩解、心電圖為廣泛導程凹面向上 ST 上升併 PR 節段下降、有心包摩擦音」，則診斷為急性心包膜炎，NSAID 加 colchicine 才正確。",
+      "C": "錯誤。早期再極化多見於年輕健康者，J 點抬高伴凹面向上 ST 段且無症狀、無動態變化。修正：若題幹改為「20 歲無症狀運動員之常規心電圖，J 點抬高併明顯 J 波切跡且心肌酵素正常」，才可判讀為早期再極化。",
+      "D": "錯誤。高血鉀典型為高聳窄基底 T 波、P 波變平與 QRS 增寬，而非 ST 節段上升。修正：若題幹改為「慢性腎病病人心電圖出現高聳對稱 T 波併 QRS 增寬、血鉀 7.1 mEq/L」，則立即給予 calcium gluconate 為正確處置。"
+    }
+  },
+  {
+    "id": "IMG-NEP-001",
+    "category": "腎臟內科 (Nephrology)",
+    "difficulty": "中",
+    "tags": [
+      "EKG",
+      "Hyperkalemia"
+    ],
+    "stem": "一名 70 歲男性，末期腎病 (ESRD) 規則透析，因錯過兩次透析後全身無力至急診。心電圖如圖所示。下列處置何者應最優先執行？",
+    "image_url": "builtin:ekg-hyperk",
+    "image_caption": "示意圖：高聳、窄基底且對稱之 T 波 (peaked T wave)，P 波振幅降低。",
+    "options": [
+      "A. 靜脈注射 calcium gluconate 以穩定心肌細胞膜",
+      "B. 立即給予靜脈注射 atropine",
+      "C. 給予口服 sodium polystyrene sulfonate 後回家等待下次透析",
+      "D. 給予硝化甘油舌下含片"
+    ],
+    "answer": "A",
+    "core_explanation": "圖示為高聳、窄基底、對稱的 T 波併 P 波變平，屬高血鉀症的心電圖變化。在有心電圖變化的高血鉀，第一優先是靜脈鈣鹽穩定心肌細胞膜，其次才是把鉀移入細胞內（胰島素併葡萄糖、β2 agonist）與移除體內鉀（樹脂、透析）。",
+    "option_breakdown": {
+      "A": "正確。鈣鹽數分鐘內生效，可對抗高血鉀導致的心肌去極化與致命性心律不整。",
+      "B": "錯誤。Atropine 用於有症狀的迷走神經性心搏過緩，對高血鉀造成的傳導異常無效。修正：若題幹改為「病人心跳 38 次/分、血壓偏低且為竇房結功能低下之症狀性心搏過緩」，則 atropine 才是正確用藥。",
+      "C": "錯誤。有心電圖變化的高血鉀屬急症，且樹脂起效慢；此病人為無尿之 ESRD，需安排緊急透析。修正：若題幹改為「血鉀 5.6 mEq/L、心電圖正常之門診慢性腎病病人」，則口服鉀結合劑並調整飲食才恰當。",
+      "D": "錯誤。硝化甘油用於心肌缺血引起的胸痛，與本例的高血鉀無關。修正：若題幹改為「胸痛且心電圖顯示 ST 節段下降之不穩定心絞痛」，則舌下硝化甘油為合理處置。"
+    }
+  },
+  {
+    "id": "IMG-CV-002",
+    "category": "心臟內科 (Cardiology)",
+    "difficulty": "易",
+    "tags": [
+      "EKG",
+      "Atrial fibrillation"
+    ],
+    "stem": "一名 78 歲女性因心悸就診，心電圖節錄如圖。下列判讀何者正確？",
+    "image_url": "builtin:ekg-afib",
+    "image_caption": "示意圖：R-R 間期絕對不規則，且無可辨識之 P 波。",
+    "options": [
+      "A. 心房顫動 (atrial fibrillation)：R-R 間期絕對不規則且無 P 波",
+      "B. 心房撲動 (atrial flutter) 併 2:1 傳導：規則的鋸齒狀波",
+      "C. 第一度房室傳導阻滯 (first-degree AV block)：PR 間期固定延長",
+      "D. 心室頻脈 (ventricular tachycardia)：規則寬 QRS 波心搏過速"
+    ],
+    "answer": "A",
+    "core_explanation": "心房顫動的心電圖三特徵：(1) 無可辨識的 P 波（代之以顫動波 f wave）；(2) R-R 間期絕對不規則 (irregularly irregular)；(3) QRS 波通常狹窄（除非合併束支傳導阻滯或差異性傳導）。",
+    "option_breakdown": {
+      "A": "正確。圖示 R-R 間期長短不一且基線無 P 波，符合心房顫動。",
+      "B": "錯誤。心房撲動的心房波規則（典型約 300 次/分之鋸齒狀 F wave），且固定比例傳導時 R-R 為規則。修正：若題幹的圖形改為「下壁導程可見規則鋸齒狀撲動波、心室率固定約 150 次/分」，則診斷為心房撲動併 2:1 傳導。",
+      "C": "錯誤。第一度房室傳導阻滯必須看得到 P 波且 PR 間期固定 > 200 ms，本圖無 P 波。修正：若題幹的圖形改為「每個 QRS 前均有 P 波、PR 間期固定為 260 ms」，則為第一度房室傳導阻滯。",
+      "D": "錯誤。心室頻脈為寬 QRS (> 120 ms)、通常規則且速率快，並可見房室分離。修正：若題幹的圖形改為「規則寬 QRS 心搏過速併房室分離與 fusion beat」，則為心室頻脈，需依血行動力學決定電擊或抗心律不整藥物。"
+    }
+  },
+  {
+    "id": "IMG-CHE-001",
+    "category": "胸腔內科 (Pulmonology)",
+    "difficulty": "中",
+    "tags": [
+      "CXR",
+      "Tension pneumothorax"
+    ],
+    "stem": "一名 24 歲高瘦男性，突發右側胸痛與呼吸困難。到院血壓 78/50 mmHg、心跳 132 次/分、右側呼吸音消失且氣管左偏。胸部 X 光示意圖如下。下列處置何者最適當？",
+    "image_url": "builtin:cxr-pneumothorax",
+    "image_caption": "示意圖：右側肺野透亮度增加、無肺紋理，肺臟塌陷且縱膈腔向左側偏移。",
+    "options": [
+      "A. 立即於患側行針刺減壓 (needle decompression)，隨後放置胸管",
+      "B. 先安排胸部電腦斷層確認診斷後再處置",
+      "C. 給予高流量氧氣並觀察，等待自行吸收",
+      "D. 立即插管給予高潮氣容積之正壓通氣"
+    ],
+    "answer": "A",
+    "core_explanation": "低血壓、心搏過速、患側呼吸音消失且氣管偏向對側，為張力性氣胸 (tension pneumothorax)——這是「臨床診斷」，必須立即針刺減壓（第 2 肋間鎖骨中線或第 4-5 肋間腋前線），之後再放置胸管。任何延誤都可能導致心跳停止。",
+    "option_breakdown": {
+      "A": "正確。張力性氣胸須先減壓再影像，針刺減壓後放置胸管為標準流程。",
+      "B": "錯誤。血行動力學不穩的張力性氣胸不應為了影像檢查而延誤減壓。修正：若題幹改為「病人生命徵象穩定、僅疑似小量氣胸而胸部 X 光判讀不確定」，則安排電腦斷層確認才是合理選擇。",
+      "C": "錯誤。保守觀察僅適用於小量、無症狀且穩定的原發性自發性氣胸。修正：若題幹改為「無症狀、氣胸寬度 < 2 cm 且生命徵象穩定的年輕病人」，則給氧觀察與追蹤 X 光為可接受處置。",
+      "D": "錯誤。未先減壓即給予正壓通氣會使胸內壓進一步上升、靜脈回流更差，可能導致心跳停止。修正：若題幹改為「已完成針刺減壓與胸管置放後，病人仍呼吸衰竭」，才考慮插管與呼吸器支持。"
+    }
+  },
+  {
+    "id": "IMG-DER-001",
+    "category": "皮膚科 (Dermatology)",
+    "difficulty": "中",
+    "tags": [
+      "SJS/TEN",
+      "Drug eruption"
+    ],
+    "stem": "一名 58 歲男性，兩週前因痛風開始服用 allopurinol。現高燒、口腔黏膜潰爛、眼結膜充血，軀幹出現如圖之標靶樣病灶並快速擴大，部分表皮剝離，Nikolsky sign 陽性，體表面積受侵犯約 8%。下列處置何者最重要且應「最優先」執行？",
+    "image_url": "builtin:derm-target",
+    "image_caption": "示意圖：標靶樣 (target-like) 病灶合併中央暗紫色壞死變化。",
+    "options": [
+      "A. 立即停用 allopurinol 並轉介燒燙傷中心等級之支持性照護",
+      "B. 繼續 allopurinol，因痛風控制更重要，並加用抗組織胺",
+      "C. 給予預防性廣效抗生素作為首要處置",
+      "D. 局部塗抹強效類固醇藥膏即可，門診追蹤"
+    ],
+    "answer": "A",
+    "core_explanation": "黏膜侵犯（口腔、眼結膜）合併標靶樣病灶、表皮剝離與 Nikolsky sign 陽性，為 Stevens-Johnson syndrome / 毒性表皮壞死溶解症 (SJS/TEN) 光譜；allopurinol 是最常見致病藥物之一（與 HLA-B*58:01 高度相關，在亞洲族群尤須注意）。第一要務是立即停用致病藥物——停藥時間愈早死亡率愈低——並給予類似大面積燒傷的支持性照護（體液、電解質、體溫、傷口與眼科照護）。",
+    "option_breakdown": {
+      "A": "正確。立即停藥加上多專科支持性照護是決定預後的關鍵。",
+      "B": "錯誤。繼續使用致病藥物會使表皮壞死持續進展、顯著提高死亡率；抗組織胺對此無治療價值。修正：若題幹改為「單純輕微藥物疹 (maculopapular drug eruption)、無黏膜侵犯且藥物無可替代」，才可能在嚴密監測下權衡是否續用並以抗組織胺緩解搔癢。",
+      "C": "錯誤。SJS/TEN 不建議常規預防性抗生素（增加抗藥性），應以嚴格無菌照護並在有感染證據時才治療。修正：若題幹改為「病人出現發燒、白血球上升且血液培養陽性之續發性敗血症」，則給予針對性抗生素為正確處置。",
+      "D": "錯誤。此為侵犯黏膜、具剝離之全身性重症皮膚不良反應，需住院處理，局部藥膏遠遠不足。修正：若題幹改為「局限性接觸性皮膚炎、無黏膜侵犯與全身症狀」，則局部類固醇並門診追蹤才恰當。"
+    }
+  }
+];
+
+/* ------------------------- 14. 影像燈箱（支援雙指縮放 / 拖曳 / 滾輪 / 雙擊） ------------------------- */
+const LB = {
+  el: null, stage: null, img: null,
+  scale: 1, tx: 0, ty: 0,
+  pointers: new Map(), lastDist: 0, lastMid: null,
+  panFrom: null, lastTap: 0,
+  moved: false, downAt: null,
+  MIN: 1, MAX: 8,
+};
+
+function lbApply() {
+  LB.img.style.transform = `translate(${LB.tx}px, ${LB.ty}px) scale(${LB.scale})`;
+  const z = $("#lbZoom");
+  if (z) z.textContent = Math.round(LB.scale * 100) + "%";
+  LB.stage.style.cursor = LB.scale > 1 ? "grab" : "zoom-in";
+}
+function lbReset() { LB.scale = 1; LB.tx = 0; LB.ty = 0; lbApply(); }
+
+/** 以畫面上的某一點為中心縮放 */
+function lbZoomAt(newScale, clientX, clientY) {
+  const rect = LB.stage.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const px = (clientX ?? cx) - cx;
+  const py = (clientY ?? cy) - cy;
+  const s = clamp(newScale, LB.MIN, LB.MAX);
+  LB.tx = px - ((px - LB.tx) * s) / LB.scale;
+  LB.ty = py - ((py - LB.ty) * s) / LB.scale;
+  LB.scale = s;
+  if (LB.scale <= 1.001) { LB.tx = 0; LB.ty = 0; LB.scale = 1; }
+  lbApply();
+}
+
+/** 開啟後自動選擇合適的起始倍率：
+    寬幅影像（如 EKG 長條）在窄螢幕上「符合寬度」後會過小，
+    因此自動放大到約佔畫面高度 60%，讓細微波形一開始就看得清楚。 */
+function lbAutoFit() {
+  const r = LB.stage.getBoundingClientRect();
+  const h = LB.img.getBoundingClientRect().height;
+  if (!h || !r.height) return;
+  const w = LB.img.getBoundingClientRect().width;
+  if (h < r.height * 0.42) {
+    /* 以高度為目標放大，但限制放大後寬度不超過畫面的 2 倍，避免一開始就要大量平移 */
+    const byHeight = (r.height * 0.62) / h;
+    const byWidth = w ? (r.width * 2.0) / w : byHeight;
+    LB.scale = clamp(Math.min(byHeight, byWidth), 1, 3);
+    LB.tx = 0; LB.ty = 0;
+    lbApply();
+  }
+}
+
+function openLightbox(src, cap) {
+  LB.el = $("#lightbox"); LB.stage = $("#lbStage"); LB.img = $("#lbImg");
+  $("#lbCap").textContent = cap || "";
+  $("#lbTitle").textContent = cap ? cap.slice(0, 60) : "醫學影像檢視";
+  LB.el.classList.add("open");
+  document.body.style.overflow = "hidden";
+  const start = () => { lbReset(); lbAutoFit(); };
+  if (LB.img.src === src && LB.img.complete) start();
+  else { LB.img.onload = start; LB.img.src = src; lbReset(); }
+}
+function closeLightbox() {
+  if (!LB.el) return;
+  LB.el.classList.remove("open");
+  document.body.style.overflow = "";
+  LB.pointers.clear();
+}
+
+function initLightbox() {
+  LB.el = $("#lightbox"); LB.stage = $("#lbStage"); LB.img = $("#lbImg");
+
+  $("#lbClose").addEventListener("click", closeLightbox);
+  $("#lbIn").addEventListener("click", () => lbZoomAt(LB.scale * 1.5));
+  $("#lbOut").addEventListener("click", () => lbZoomAt(LB.scale / 1.5));
+  $("#lbReset").addEventListener("click", lbReset);
+  /* 點背景關閉；但剛結束拖曳／縮放手勢時不要誤關 */
+  LB.el.addEventListener("click", (e) => {
+    if (e.target !== LB.el && e.target !== LB.stage) return;
+    if (LB.moved) { LB.moved = false; return; }
+    closeLightbox();
+  });
+
+  LB.stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    lbZoomAt(LB.scale * (e.deltaY < 0 ? 1.16 : 1 / 1.16), e.clientX, e.clientY);
+  }, { passive: false });
+
+  LB.stage.addEventListener("pointerdown", (e) => {
+    LB.stage.setPointerCapture(e.pointerId);
+    LB.moved = false;
+    LB.downAt = { x: e.clientX, y: e.clientY };
+    LB.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (LB.pointers.size === 1) {
+      LB.panFrom = { x: e.clientX, y: e.clientY, tx: LB.tx, ty: LB.ty };
+      /* 雙擊 / 雙點 → 在 1x 與 2.6x 之間切換 */
+      const now = Date.now();
+      if (now - LB.lastTap < 300) {
+        lbZoomAt(LB.scale > 1.2 ? 1 : 2.6, e.clientX, e.clientY);
+        LB.lastTap = 0;
+      } else LB.lastTap = now;
+    } else if (LB.pointers.size === 2) {
+      const [a, b] = Array.from(LB.pointers.values());
+      LB.lastDist = Math.hypot(a.x - b.x, a.y - b.y);
+      LB.lastMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      LB.panFrom = null;
+    }
+    LB.stage.classList.add("dragging");
+  });
+
+  LB.stage.addEventListener("pointermove", (e) => {
+    if (!LB.pointers.has(e.pointerId)) return;
+    if (LB.downAt && Math.hypot(e.clientX - LB.downAt.x, e.clientY - LB.downAt.y) > 6) LB.moved = true;
+    LB.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (LB.pointers.size === 2) {
+      const [a, b] = Array.from(LB.pointers.values());
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (LB.lastDist > 0) {
+        const ratio = dist / LB.lastDist;
+        /* 縮放 + 隨雙指中心平移 */
+        LB.tx += mid.x - LB.lastMid.x;
+        LB.ty += mid.y - LB.lastMid.y;
+        lbZoomAt(LB.scale * ratio, mid.x, mid.y);
+      }
+      LB.lastDist = dist; LB.lastMid = mid;
+    } else if (LB.pointers.size === 1 && LB.panFrom && LB.scale > 1) {
+      LB.tx = LB.panFrom.tx + (e.clientX - LB.panFrom.x);
+      LB.ty = LB.panFrom.ty + (e.clientY - LB.panFrom.y);
+      lbApply();
+    }
+  });
+
+  const up = (e) => {
+    LB.pointers.delete(e.pointerId);
+    if (LB.pointers.size < 2) { LB.lastDist = 0; LB.lastMid = null; }
+    if (LB.pointers.size === 0) { LB.panFrom = null; LB.stage.classList.remove("dragging"); }
+  };
+  LB.stage.addEventListener("pointerup", up);
+  LB.stage.addEventListener("pointercancel", up);
+  LB.stage.addEventListener("pointerleave", up);
+}
+
+/* ------------------------- 15. 匯入 / 匯出 ------------------------- */
+function toRawSchema(q) {
+  const o = {
+    id: q.id,
+    category: q.category,
+    stem: q.stem,
+    options: q.options.map((x) => `${x.key}. ${x.text}`),
+    answer: q.multi ? q.answers : q.answers[0],
+    core_explanation: q.core,
+    option_breakdown: q.breakdown,
+  };
+  if (q.images.length) o.image_url = q.images.length === 1 ? q.images[0] : q.images;
+  if (q.imageCaption) o.image_caption = q.imageCaption;
+  if (q.difficulty) o.difficulty = q.difficulty;
+  if (q.tags.length) o.tags = q.tags;
+  if (q.source) o.source = q.source;
+  if (q.reference) o.reference = q.reference;
+  if (Object.keys(q.fixes).length) o.option_fix = q.fixes;
+  return o;
+}
+
+function downloadJSON(filename, obj) {
+  try {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast("已開始下載：" + filename, "ok");
+  } catch (e) { toast("下載失敗：" + e.message, "err"); }
+}
+
+let importMode = "append";
+
+function addQuestions(newQs, sourceName, mode) {
+  if (!newQs.length) { toast("沒有可匯入的題目", "err"); return 0; }
+  if (mode === "replace") {
+    state.bank = newQs;
+    state.meta = { name: sourceName, loadedAt: Date.now(), sources: [sourceName] };
+  } else {
+    const seen = new Set(state.bank.map((q) => q.id + "|" + q.stem.slice(0, 40)));
+    const add = newQs.filter((q) => !seen.has(q.id + "|" + q.stem.slice(0, 40)));
+    state.bank = state.bank.concat(add);
+    state.meta.loadedAt = Date.now();
+    state.meta.sources = Array.from(new Set((state.meta.sources || []).concat(sourceName)));
+    saveBank();
+    return add.length;
+  }
+  saveBank();
+  return newQs.length;
+}
+
+function loadSample(which, mode = "append") {
+  const map = { im: [SAMPLE_IM, "內科綜合示範卷"], img: [SAMPLE_IMG, "影像判讀示範"] };
+  const [data, name] = map[which] || [];
+  if (!data) return;
+  const { questions, errors } = parseBankJSON(JSON.stringify(data));
+  const n = addQuestions(questions, name, mode);
+  if (errors.length) console.warn(errors);
+  toast(`已載入「${name}」${n} 題`, "ok");
+  render();
+}
+
+function handleFiles(files) {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  let done = 0, added = 0, allErrors = [];
+  let first = true; /* 「取代」模式只對第一個成功讀取的檔案生效，其餘檔案改為附加 */
+  list.forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { questions, errors } = parseBankJSON(String(reader.result));
+        const mode = (importMode === "replace" && first) ? "replace" : "append";
+        first = false;
+        added += addQuestions(questions, file.name, mode);
+        allErrors = allErrors.concat(errors.map((e) => `${file.name} ${e}`));
+      } catch (e) {
+        allErrors.push(`${file.name}：${e.message}`);
+      }
+      done++;
+      if (done === list.length) finishImport(added, allErrors);
+    };
+    reader.onerror = () => { done++; allErrors.push(`${file.name}：讀取失敗`); if (done === list.length) finishImport(added, allErrors); };
+    reader.readAsText(file, "utf-8");
+  });
+}
+
+function finishImport(added, errors) {
+  render();
+  if (added) toast(`成功匯入 ${added} 題`, "ok", 3200);
+  if (errors.length) {
+    openModal(`<h3>⚠️ 有 ${errors.length} 筆資料被略過</h3>
+      <p class="small muted" style="margin:.4rem 0 .7rem">其餘題目已成功匯入。以下為被略過的原因：</p>
+      <div class="textarea" style="max-height:240px; overflow:auto; white-space:pre-wrap">${esc(errors.slice(0, 50).join("\n"))}${errors.length > 50 ? "\n…" : ""}</div>
+      <div class="btn-row" style="justify-content:flex-end; margin-top:.9rem"><button class="btn btn-primary" data-act="close-modal">知道了</button></div>`);
+  } else if (!added) toast("沒有新增任何題目（可能全部重複）", "err");
+}
+
+const TEMPLATE = [{
+  id: "Q001",
+  category: "心臟內科 (Cardiology)",
+  difficulty: "中",
+  tags: ["範例"],
+  stem: "在此輸入題幹⋯⋯（可換行）",
+  image_url: "https://example.com/ekg.jpg",
+  image_caption: "圖片說明（選填）",
+  options: ["A. 選項一", "B. 選項二", "C. 選項三", "D. 選項四"],
+  answer: "A",
+  core_explanation: "核心解析：說明正解為什麼正確、關鍵鑑別點與臨床指引依據。",
+  option_breakdown: {
+    A: "正確。說明此選項符合何種診斷或治療原則。",
+    B: "錯誤。說明錯在哪裡。修正：若題幹改為⋯⋯，則此選項才會正確。",
+    C: "錯誤。說明錯在哪裡。修正：若選項改寫為⋯⋯，則此選項才會正確。",
+    D: "錯誤。說明錯在哪裡。修正：⋯⋯",
+  },
+}];
+
+/* ------------------------- 16. 事件系統 ------------------------- */
+function selectedCatsToggle(arr, cat) {
+  if (cat === "__all") return [];
+  const i = arr.indexOf(cat);
+  if (i >= 0) arr.splice(i, 1); else arr.push(cat);
+  return arr;
+}
+
+document.addEventListener("click", async (e) => {
+  /* --- 篩選 pill --- */
+  const pill = e.target.closest(".pill");
+  if (pill) {
+    const p = pill.parentElement;
+    if (pill.dataset.cat !== undefined) {
+      const target = state.view === "practiceSetup" ? setupState.practice : setupState.exam;
+      target.cats = selectedCatsToggle(target.cats.slice(), pill.dataset.cat);
+      return render();
+    }
+    if (pill.dataset.count !== undefined) { setupState.practice.count = +pill.dataset.count; return render(); }
+    if (pill.dataset.limit !== undefined) { setupState.exam.limitMin = +pill.dataset.limit; return render(); }
+    if (pill.dataset.wcat !== undefined) { wrongSetup.cats = selectedCatsToggle(wrongSetup.cats.slice(), pill.dataset.wcat); return render(); }
+    if (pill.dataset.wcount !== undefined) { wrongSetup.count = +pill.dataset.wcount; return render(); }
+    if (pill.dataset.mode !== undefined) {
+      importMode = pill.dataset.mode;
+      $$("#importMode .pill").forEach((b) => b.classList.toggle("on", b.dataset.mode === importMode));
+      return;
+    }
+  }
+
+  /* --- 錯題移出門檻設定（使用說明對話框內） --- */
+  const mst = e.target.closest("[data-mastery]");
+  if (mst) {
+    state.settings.masteryStreak = +mst.dataset.mastery;
+    saveSettings();
+    $$("[data-mastery]").forEach((x) => x.classList.toggle("on", +x.dataset.mastery === state.settings.masteryStreak));
+    toast("已設定：連對 " + state.settings.masteryStreak + " 次移出錯題本", "ok");
+    return;
+  }
+
+  /* --- 手風琴 --- */
+  const acc = e.target.closest("[data-acc]");
+  if (acc) {
+    const panel = $("#acc-" + acc.dataset.acc);
+    const open = acc.getAttribute("aria-expanded") === "true";
+    acc.setAttribute("aria-expanded", String(!open));
+    if (panel) panel.classList.toggle("open", !open);
+    const lbl = acc.querySelector("span");
+    if (lbl && lbl.textContent.includes("詳解")) lbl.textContent = `📖 ${!open ? "收合" : "展開"}完整詳解（核心解析 + 選項逐項解析與修正）`;
+    return;
+  }
+
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const act = btn.dataset.act;
+
+  switch (act) {
+    case "nav": go(btn.dataset.view); break;
+    case "close-modal": closeModal(); break;
+
+    /* 題庫 */
+    case "load-samples":
+      loadSample("im", state.bank.length ? "append" : "replace");
+      loadSample("img", "append");
+      break;
+    case "load-sample": loadSample(btn.dataset.which, importMode); break;
+    case "export-bank": downloadJSON(`im-question-bank-${state.bank.length}q.json`, state.bank.map(toRawSchema)); break;
+    case "clear-bank":
+      if (await confirmDialog("清空題庫？", "將移除瀏覽器中保存的全部題目（錯題本與學習紀錄不受影響）。此動作無法復原。", "清空題庫")) {
+        state.bank = []; state.meta = { name: "", loadedAt: null, sources: [] }; saveBank(); render(); toast("題庫已清空");
+      }
+      break;
+    case "import-paste": {
+      const txt = $("#pasteArea")?.value.trim();
+      if (!txt) return toast("請先貼上 JSON 內容", "err");
+      try {
+        const { questions, errors } = parseBankJSON(txt);
+        const n = addQuestions(questions, "貼上匯入", importMode);
+        finishImport(n, errors);
+      } catch (err) { toast(err.message, "err", 4200); }
+      break;
+    }
+    case "download-template": downloadJSON("question-template.json", TEMPLATE); break;
+    case "copy-template":
+      try { await navigator.clipboard.writeText(JSON.stringify(TEMPLATE, null, 2)); toast("範本已複製到剪貼簿", "ok"); }
+      catch (err) { const t = $("#pasteArea"); if (t) { t.value = JSON.stringify(TEMPLATE, null, 2); toast("已填入下方輸入框", "ok"); } }
+      break;
+
+    /* 設定 */
+    case "exam-order": setupState.exam.shuffle = btn.dataset.v === "1"; render(); break;
+    case "opt-order": state.settings.shuffleOptions = btn.dataset.v === "1"; saveSettings(); render(); break;
+
+    /* 開始測驗 */
+    case "start-exam": {
+      const s = setupState.exam;
+      const pool = s.cats.length ? state.bank.filter((q) => s.cats.includes(q.category)) : state.bank;
+      startQuiz({
+        mode: "exam", navKey: "examSetup",
+        title: `完整測驗 · ${pool.length} 題${s.cats.length ? " · " + s.cats.join("／") : ""}`,
+        questions: pool, shuffleQ: s.shuffle, limitMin: s.limitMin,
+      });
+      break;
+    }
+    case "start-practice": {
+      const s = setupState.practice;
+      const pool = s.cats.length ? state.bank.filter((q) => s.cats.includes(q.category)) : state.bank;
+      const n = Math.min(s.count, pool.length);
+      startQuiz({
+        mode: "practice", navKey: "practiceSetup",
+        title: `零碎練習 · ${n} 題${s.cats.length ? " · " + s.cats.join("／") : ""}`,
+        questions: shuffle(pool).slice(0, n), shuffleQ: false,
+      });
+      break;
+    }
+    case "start-wrong": {
+      const pool = (wrongSetup.cats.length ? state.wrong.filter((w) => wrongSetup.cats.includes(w.q.category)) : state.wrong);
+      const n = Math.min(wrongSetup.count, pool.length);
+      startQuiz({
+        mode: "wrong", navKey: "wrong",
+        title: `錯題重測 · ${n} 題`,
+        questions: shuffle(pool).slice(0, n).map((w) => w.q), shuffleQ: false,
+      });
+      break;
+    }
+
+    /* 錯題本 */
+    case "drop-wrong": state.wrong.splice(+btn.dataset.i, 1); saveWrong(); render(); toast("已從錯題本移除"); break;
+    case "clear-wrong":
+      if (await confirmDialog("清空錯題本？", `將移除全部 ${state.wrong.length} 題錯題紀錄，此動作無法復原。`, "清空")) {
+        state.wrong = []; saveWrong(); render(); toast("錯題本已清空");
+      }
+      break;
+    case "export-wrong": downloadJSON(`im-wrong-questions-${state.wrong.length}q.json`, state.wrong.map((w) => toRawSchema(w.q))); break;
+    case "clear-history":
+      if (await confirmDialog("清除學習紀錄？", "將移除全部測驗歷程與分科統計，錯題本不受影響。", "清除")) {
+        state.history = []; saveHistory(); render(); toast("紀錄已清除");
+      }
+      break;
+    case "goto-wrong": go("wrong"); break;
+
+    /* 續作 */
+    case "resume-go": resumeQuiz(); break;
+    case "resume-drop": LS.del(K.resume); render(); toast("已捨棄未完成的測驗"); break;
+
+    /* 測驗中 */
+    case "pick": pickOption(btn.dataset.key); break;
+    case "prev": gotoQ(state.quiz.idx - 1); break;
+    case "next": gotoQ(state.quiz.idx + 1); break;
+    case "jump": gotoQ(+btn.dataset.i); break;
+    case "flag":
+      state.quiz.flags[state.quiz.idx] = !state.quiz.flags[state.quiz.idx];
+      renderQuizBody(); persistResume();
+      break;
+    case "opensheet": openSheet(`<div style="font-weight:800; margin-bottom:.6rem">題號導覽</div>` + qnavHTML(true)); break;
+    case "submit": {
+      const z = state.quiz;
+      if (!z) break;
+      const un = z.qs.length - Object.keys(z.answers).length;
+      if (un > 0) {
+        const okGo = await confirmDialog("確定要交卷？", `尚有 <b>${un}</b> 題未作答，未作答的題目會計為零分。交卷後將顯示分數與完整詳解。`, "確定交卷", false);
+        if (!okGo) break;
+      }
+      closeSheet();
+      submitQuiz();
+      break;
+    }
+    case "abort":
+      if (await confirmDialog("離開測驗？", "目前作答進度會自動保存，可從首頁繼續作答。", "離開", false)) {
+        persistResume(); stopTimer(); state.quiz = null; go("home");
+      }
+      break;
+
+    /* 結果頁 */
+    case "rfilter": state.reviewFilter = btn.dataset.f; render(); break;
+    case "expand-all":
+      $$("#reviewList .acc-panel").forEach((p) => p.classList.add("open"));
+      $$("#reviewList .acc-btn").forEach((b) => b.setAttribute("aria-expanded", "true"));
+      break;
+    case "collapse-all":
+      $$("#reviewList .acc-panel").forEach((p) => p.classList.remove("open"));
+      $$("#reviewList .acc-btn").forEach((b) => b.setAttribute("aria-expanded", "false"));
+      break;
+    case "retry-same": {
+      const r = state.result;
+      startQuiz({ mode: r.mode, navKey: r.navKey, title: r.title.replace(/（複習）$/, "") + "（複習）", questions: r.qs, shuffleQ: true });
+      break;
+    }
+    case "export-result": {
+      const r = state.result;
+      downloadJSON(`im-result-${new Date(r.ts).toISOString().slice(0, 10)}.json`, {
+        title: r.title, date: new Date(r.ts).toISOString(), score: `${r.correct}/${r.total}`, percent: r.pct,
+        duration: fmtTime(r.durationMs), byCategory: r.byCat,
+        details: r.qs.map((q, i) => ({
+          id: q.id, category: q.category, stem: q.stem,
+          your_answer: (r.answers[i] || []).join(",") || null,
+          correct_answer: q.answers.join(","),
+          result: !(r.answers[i] || []).length ? "unanswered" : isCorrect(q, r.answers[i]) ? "correct" : "wrong",
+        })),
+      });
+      break;
+    }
+    case "print": window.print(); break;
+
+    /* 影像 */
+    case "zoom": openLightbox(btn.dataset.src, btn.dataset.cap); break;
+  }
+});
+
+/* 檔案與滑桿 */
+document.addEventListener("change", (e) => {
+  if (e.target.id === "fileInput") handleFiles(e.target.files);
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "countSlider") {
+    const s = setupState.practice;
+    s.count = +e.target.value;
+    $$("#countPills .pill").forEach((b) => b.classList.toggle("on", +b.dataset.count === s.count));
+    const pool = s.cats.length ? state.bank.filter((q) => s.cats.includes(q.category)) : state.bank;
+    const target = $("#practiceCountVal");
+    if (target) target.textContent = Math.min(s.count, pool.length) + " 題";
+  }
+});
+
+/* 鍵盤操作 */
+document.addEventListener("keydown", (e) => {
+  if ($("#lightbox").classList.contains("open")) {
+    if (e.key === "Escape") closeLightbox();
+    if (e.key === "+" || e.key === "=") lbZoomAt(LB.scale * 1.4);
+    if (e.key === "-") lbZoomAt(LB.scale / 1.4);
+    if (e.key === "0") lbReset();
+    return;
+  }
+  if (e.key === "Escape") { closeModal(); closeSheet(); return; }
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) return;
+  if (state.view !== "quiz" || !state.quiz || state.quiz.submitted) return;
+
+  const z = state.quiz;
+  const q = z.qs[z.idx];
+  const k = e.key.toUpperCase();
+  if (/^[A-J]$/.test(k) && q.options.some((o) => o.key === k)) { e.preventDefault(); pickOption(k); return; }
+  if (/^[1-9]$/.test(k)) { const o = q.options[+k - 1]; if (o) { e.preventDefault(); pickOption(o.key); } return; }
+  if (e.key === "ArrowLeft") { e.preventDefault(); gotoQ(z.idx - 1); }
+  if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); gotoQ(z.idx + 1); }
+  if (k === "F") { e.preventDefault(); z.flags[z.idx] = !z.flags[z.idx]; renderQuizBody(); }
+});
+
+/* 頂部工具列 */
+function initTopbar() {
+  $("#btnTheme").addEventListener("click", () => {
+    const order = ["auto", "light", "dark"];
+    state.settings.theme = order[(order.indexOf(state.settings.theme) + 1) % 3];
+    saveSettings(); applyTheme();
+    toast("顯示模式：" + { auto: "跟隨系統", light: "淺色", dark: "深色" }[state.settings.theme]);
+  });
+  $("#btnFont").addEventListener("click", () => {
+    const steps = [1, 1.1, 1.22];
+    state.settings.fontScale = steps[(steps.indexOf(state.settings.fontScale) + 1) % steps.length];
+    saveSettings(); applyFont();
+    toast("字級：" + Math.round(state.settings.fontScale * 100) + "%");
+  });
+  $("#btnHelp").addEventListener("click", showHelp);
+  $("#navtabs").addEventListener("click", (e) => {
+    const t = e.target.closest(".navtab");
+    if (t) go(t.dataset.nav);
+  });
+  $("#modalBackdrop").addEventListener("click", (e) => { if (e.target.id === "modalBackdrop") closeModal(); });
+  $("#sheetBackdrop").addEventListener("click", (e) => { if (e.target.id === "sheetBackdrop") closeSheet(); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (state.settings.theme === "auto") applyTheme(); });
+  window.addEventListener("beforeunload", persistResume);
+}
+
+function showHelp() {
+  openModal(`<h3>📖 使用說明</h3>
+    <div class="small" style="line-height:1.9; max-height:60vh; overflow:auto; margin:.6rem 0">
+      <p><b>A · 完整測驗</b>：整份考卷一次作答，交卷後顯示分數與逐題詳解，可設定作答時限。</p>
+      <p><b>B · 零碎練習</b>：自選 5–100 題與次專科，適合值班空檔快速練習。</p>
+      <p><b>C · 錯題重測</b>：A、B 模式答錯的題目自動收錄；重測答對 ${state.settings.masteryStreak} 次後自動移出。</p>
+      <hr class="divider" />
+      <p><b>影像操作</b>：點擊題目圖片可開啟全螢幕燈箱，支援雙指縮放、拖曳平移、滾輪縮放、雙擊放大。</p>
+      <p><b>鍵盤快速鍵</b>：<kbd>A</kbd>–<kbd>E</kbd> 或 <kbd>1</kbd>–<kbd>5</kbd> 選答、<kbd>←</kbd><kbd>→</kbd> 換題、<kbd>F</kbd> 標記、<kbd>Enter</kbd> 下一題、<kbd>Esc</kbd> 關閉視窗。</p>
+      <p><b>資料保存</b>：題庫、錯題本與學習紀錄都存在此瀏覽器的 localStorage，不會上傳到任何伺服器；換裝置或清除瀏覽資料會遺失，重要題庫請用「匯出 JSON」備份。</p>
+      <hr class="divider" />
+      <p><b>錯題移出門檻</b>：答對幾次後把題目移出錯題本？</p>
+      <div class="pill-group" style="margin-top:.4rem">
+        ${[1, 2, 3].map((n) => `<button class="pill ${state.settings.masteryStreak === n ? "on" : ""}" data-mastery="${n}">連對 ${n} 次</button>`).join("")}
+      </div>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end"><button class="btn btn-primary" data-act="close-modal">關閉</button></div>`);
+}
+
+/* ------------------------- 17. 啟動 ------------------------- */
+function boot() {
+  loadPersisted();
+  applyTheme();
+  applyFont();
+  initTopbar();
+  initLightbox();
+  render();
+  if (!state.bank.length && !LS.get(K.bank, null)) {
+    /* 首次使用：預先載入內建範例，讓使用者可以立刻試玩 */
+    loadSample("im", "replace");
+    loadSample("img", "append");
+    state.view = "home";
+    render();
+  }
+}
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>
